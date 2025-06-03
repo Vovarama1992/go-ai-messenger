@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package chatpb;
+
+option go_package = "github.com/Vovarama1992/go-ai-messenger/proto/chatpb;chatpb";
+
+service ChatService {
+  rpc GetChatByID (GetChatByIDRequest) returns (GetChatByIDResponse);
+  rpc GetBindingsByChat (GetBindingsByChatRequest) returns (GetBindingsByChatResponse);
+}
+
+message GetChatByIDRequest {
+  int64 id = 1;
+}
+
+message GetChatByIDResponse {
+  int64 id = 1;
+  int64 creator_id = 2;
+  string type = 3;
+  int64 created_at = 4;
+}
+
+message GetBindingsByChatRequest {
+  int64 chat_id = 1;
+}
+
+message ChatBinding {
+  int64 user_id = 1;
+  string type = 2; // "advice" | "autoreply"
+}
+
+message GetBindingsByChatResponse {
+  repeated ChatBinding bindings = 1;
+}

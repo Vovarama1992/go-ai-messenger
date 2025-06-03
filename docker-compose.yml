@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # 🐘 PostgreSQL
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 🐵 Zookeeper (для Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  # 🦍 Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+
+  # 👤 User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      - postgres
+    ports:
+      - "${USER_GRPC_PORT}:${USER_GRPC_PORT}"
+
+  # 🔐 Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    depends_on:
+      - user-service
+    ports:
+      - "${AUTH_HTTP_PORT}:${AUTH_HTTP_PORT}"
+
+  # 💬 Chat Service
+  chat-service:
+    build:
+      context: .
+      dockerfile: chat-service/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CHAT_HTTP_PORT: ${CHAT_HTTP_PORT}
+      CHAT_GRPC_PORT: ${CHAT_GRPC_PORT}
+      AUTH_SERVICE_GRPC_ADDR: ${AUTH_SERVICE_GRPC_ADDR}
+    depends_on:
+      - postgres
+      - auth-service
+    ports:
+      - "${CHAT_HTTP_PORT}:${CHAT_HTTP_PORT}"
+      - "${CHAT_GRPC_PORT}:${CHAT_GRPC_PORT}"
+
+  # 📨 Message Service
+  message-service:
+    build:
+      context: .
+      dockerfile: message-service/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      MESSAGE_SERVICE_PORT: ${MESSAGE_SERVICE_PORT}
+      KAFKA_BROKER: ${KAFKA_BROKER}
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "${MESSAGE_SERVICE_PORT}:${MESSAGE_SERVICE_PORT}"
+
+  # 🌐 WebSocket Gateway replica 1
+  ws-gateway-1:
+    build:
+      context: .
+      dockerfile: ws-gateway/Dockerfile
+    env_file: ws-gateway-1.env
+    depends_on:
+      - kafka
+      - auth-service
+    ports:
+      - "8083:8083"
+
+  # 🌐 WebSocket Gateway replica 2
+  ws-gateway-2:
+    build:
+      context: .
+      dockerfile: ws-gateway/Dockerfile
+    env_file: ws-gateway-2.env
+    depends_on:
+      - kafka
+      - auth-service
+    ports:
+      - "8084:8084"
+
+volumes:
+  postgres_data:
