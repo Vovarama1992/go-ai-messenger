@@ -27,6 +27,10 @@ func (s *UserService) GetByEmail(ctx context.Context, email string) (*model.User
 	return s.repo.FindByEmail(ctx, email)
 }
 
+func (s *UserService) FindByID(ctx context.Context, id int64) (*model.User, error) {
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *UserService) Create(ctx context.Context, email, passwordHash string) (*model.User, error) {
 	email = strings.TrimSpace(email)
 	passwordHash = strings.TrimSpace(passwordHash)

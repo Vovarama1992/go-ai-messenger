@@ -20,12 +20,13 @@ func NewHandler(authService ports.AuthService) *Handler {
 }
 
 func (h *Handler) ValidateToken(ctx context.Context, req *authpb.ValidateTokenRequest) (*authpb.ValidateTokenResponse, error) {
-	userID, err := h.authService.ValidateToken(ctx, req.GetToken())
+	userID, email, err := h.authService.ValidateToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, errors.New("invalid token")
 	}
 
 	return &authpb.ValidateTokenResponse{
 		UserId: userID,
+		Email:  email,
 	}, nil
 }

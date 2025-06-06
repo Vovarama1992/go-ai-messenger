@@ -10,7 +10,10 @@ import (
 
 type contextKey string
 
-const userIDKey = contextKey("userID")
+const (
+	userIDKey contextKey = "userID"
+	emailKey  contextKey = "email"
+)
 
 type AuthMiddleware struct {
 	authClient authpb.AuthServiceClient
@@ -36,6 +39,8 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), userIDKey, resp.UserId)
+		ctx = context.WithValue(ctx, emailKey, resp.Email)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -44,4 +49,10 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 func GetUserID(ctx context.Context) (int64, bool) {
 	userID, ok := ctx.Value(userIDKey).(int64)
 	return userID, ok
+}
+
+// Извлечение email из контекста в handler
+func GetUserEmail(ctx context.Context) (string, bool) {
+	email, ok := ctx.Value(emailKey).(string)
+	return email, ok
 }

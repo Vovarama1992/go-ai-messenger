@@ -2,11 +2,12 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "proto/userpb";
+option go_package = "github.com/Vovarama1992/go-ai-messenger/proto/userpb;userpb";
 
 service UserService {
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
   rpc GetUserByEmail (GetUserByEmailRequest) returns (GetUserByEmailResponse);
+  rpc GetUserByID (GetUserByIDRequest) returns (GetUserByIDResponse);
 }
 
 message CreateUserRequest {
@@ -24,6 +25,16 @@ message GetUserByEmailRequest {
 }
 
 message GetUserByEmailResponse {
+  int64 id = 1;
+  string email = 2;
+  string password_hash = 3;
+}
+
+message GetUserByIDRequest {
+  int64 id = 1;
+}
+
+message GetUserByIDResponse {
   int64 id = 1;
   string email = 2;
   string password_hash = 3;

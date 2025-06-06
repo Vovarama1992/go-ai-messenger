@@ -18,7 +18,7 @@ func TestMessageService_SaveMessage_Success(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mock.NewMockMessageRepo(ctrl)
-	svc := NewMessageService(mockRepo)
+	svc := NewMessageService(mockRepo, nil) // <- передаём nil для userClient
 
 	msg := &model.Message{
 		ChatID:      10,
@@ -52,7 +52,7 @@ func TestMessageService_SaveMessage_RepoError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mock.NewMockMessageRepo(ctrl)
-	svc := NewMessageService(mockRepo)
+	svc := NewMessageService(mockRepo, nil)
 
 	msg := &model.Message{
 		ChatID:   1,

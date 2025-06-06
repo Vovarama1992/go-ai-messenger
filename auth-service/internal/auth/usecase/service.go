@@ -33,8 +33,9 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email, password string) (st
 	}
 
 	claims := jwt.MapClaims{
-		"sub": id,
-		"exp": time.Now().Add(24 * time.Hour).Unix(),
+		"sub":   id,
+		"email": email,
+		"exp":   time.Now().Add(24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
@@ -55,7 +56,7 @@ func (s *AuthServiceImpl) Register(ctx context.Context, email, password string) 
 	return s.userClient.Create(ctx, email, string(hash))
 }
 
-func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string) (int64, error) {
+func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string) (int64, string, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -63,18 +64,23 @@ func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string)
 		return []byte(s.jwtSecret), nil
 	})
 	if err != nil || !token.Valid {
-		return 0, errors.New("invalid token")
+		return 0, "", errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return 0, errors.New("invalid claims")
+		return 0, "", errors.New("invalid claims")
 	}
 
-	sub, ok := claims["sub"].(float64) // jwt lib парсит числа как float64
+	sub, ok := claims["sub"].(float64)
 	if !ok {
-		return 0, errors.New("sub claim missing or invalid")
+		return 0, "", errors.New("sub claim missing or invalid")
 	}
 
-	return int64(sub), nil
+	email, ok := claims["email"].(string)
+	if !ok {
+		return 0, "", errors.New("email claim missing or invalid")
+	}
+
+	return int64(sub), email, nil
 }

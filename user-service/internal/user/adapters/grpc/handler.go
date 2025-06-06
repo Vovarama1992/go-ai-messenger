@@ -28,6 +28,18 @@ func (h *Handler) GetUserByEmail(ctx context.Context, req *userpb.GetUserByEmail
 	}, nil
 }
 
+func (h *Handler) GetUserByID(ctx context.Context, req *userpb.GetUserByIDRequest) (*userpb.GetUserByIDResponse, error) {
+	user, err := h.service.FindByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &userpb.GetUserByIDResponse{
+		Id:    user.ID,
+		Email: user.Email,
+	}, nil
+}
+
 func (h *Handler) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.CreateUserResponse, error) {
 	user, err := h.service.Create(ctx, req.GetEmail(), req.GetPasswordHash())
 	if err != nil {

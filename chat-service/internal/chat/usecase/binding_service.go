@@ -9,29 +9,16 @@ import (
 )
 
 type ChatBindingService struct {
-	repo ports.ChatBindingRepository
+	repo          ports.ChatBindingRepository
+	broker        ports.MessageBroker
+	messageClient ports.MessageClient
 }
 
-func NewChatBindingService(repo ports.ChatBindingRepository) *ChatBindingService {
-	return &ChatBindingService{repo: repo}
+func NewChatBindingService(repo ports.ChatBindingRepository, broker ports.MessageBroker, client ports.MessageClient) *ChatBindingService {
+	return &ChatBindingService{repo, broker, client}
 }
 
-func (s *ChatBindingService) BindUserToChat(ctx context.Context, userID, chatID int64, bindingType model.AIBindingType) error {
-	if err := bindingType.IsValid(); err != nil {
-		return err
-	}
-
-	binding := &model.ChatBinding{
-		UserID:    userID,
-		ChatID:    chatID,
-		Type:      bindingType,
-		CreatedAt: time.Now().Unix(),
-	}
-
-	return s.repo.Create(ctx, binding)
-}
-
-func (s *ChatBindingService) UpdateBinding(ctx context.Context, userID, chatID int64, newType model.AIBindingType) error {
+func (s *ChatBindingService) UpdateBinding(ctx context.Context, userEmail string, userID, chatID int64, newType model.AIBindingType) error {
 	if err := newType.IsValid(); err != nil {
 		return err
 	}
@@ -43,6 +30,41 @@ func (s *ChatBindingService) UpdateBinding(ctx context.Context, userID, chatID i
 		CreatedAt: time.Now().Unix(),
 	}
 
+	_, err := s.repo.FindByUserAndChat(ctx, userID, chatID)
+	if err != nil {
+		// Привязки нет — создаём и пушим ивент с историей
+		if err := s.repo.Create(ctx, binding); err != nil {
+			return err
+		}
+
+		messagesPb, err := s.messageClient.GetMessagesByChat(ctx, chatID)
+		if err != nil {
+			return err
+		}
+
+		// Конвертируем protobuf-сообщения в model.ChatMessage
+		messages := make([]model.ChatMessage, len(messagesPb))
+		for i, m := range messagesPb {
+			messages[i] = model.ChatMessage{
+				SenderEmail: m.SenderEmail,
+				Text:        m.Text,
+				SentAt:      m.SentAt,
+			}
+		}
+
+		payload := model.AiBindingInitPayload{
+			ChatID:    chatID,
+			UserID:    userID,
+			Type:      string(newType),
+			UserEmail: userEmail,
+			Messages:  messages,
+		}
+
+		go s.broker.SendAiBindingInit(context.Background(), payload)
+		return nil
+	}
+
+	// Привязка уже есть — обновляем
 	return s.repo.Update(ctx, binding)
 }
 

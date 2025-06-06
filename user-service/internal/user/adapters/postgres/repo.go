@@ -52,3 +52,21 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash string)
 		PasswordHash: passwordHash,
 	}, nil
 }
+
+func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
+	const query = `
+		SELECT id, email, password_hash
+		FROM users
+		WHERE id = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, id)
+
+	var user model.User
+	err := row.Scan(&user.ID, &user.Email, &user.PasswordHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}

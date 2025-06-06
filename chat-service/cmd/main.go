@@ -8,12 +8,15 @@ import (
 	"os"
 
 	chatgrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
+	grpcclient "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
 	chathttp "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/http"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/postgres"
+	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/kafka"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"
-	"github.com/Vovarama1992/go-ai-messenger/proto/authpb"
-	"github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
+	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
+	chatpb "github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
+	messagepb "github.com/Vovarama1992/go-ai-messenger/proto/messagepb"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
@@ -42,21 +45,38 @@ func main() {
 		authGRPCAddr = "auth-service:50052"
 	}
 
-	// Подключение к базе
+	messageGRPCAddr := os.Getenv("MESSAGE_SERVICE_GRPC_ADDR")
+	if messageGRPCAddr == "" {
+		log.Fatal("MESSAGE_SERVICE_GRPC_ADDR is not set")
+	}
+
+	topic := os.Getenv("TOPIC_AI_BINDING_INIT")
+	if topic == "" {
+		log.Fatal("TOPIC_AI_BINDING_INIT is not set")
+	}
+
+	broker := kafkaadapter.NewKafkaProducer(topic)
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("failed to connect to DB: %v", err)
 	}
 	defer db.Close()
 
-	// Репозитории и сервисы
 	chatRepo := postgres.NewChatRepo(db)
 	bindingRepo := postgres.NewChatBindingRepo(db)
 
-	chatService := usecase.NewChatService(chatRepo)
-	bindingService := usecase.NewChatBindingService(bindingRepo)
+	msgConn, err := grpc.Dial(messageGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("failed to connect to message-service gRPC: %v", err)
+	}
+	defer msgConn.Close()
 
-	// Подключение к auth-service по gRPC для middleware
+	msgClient := grpcclient.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
+
+	chatService := usecase.NewChatService(chatRepo)
+	bindingService := usecase.NewChatBindingService(bindingRepo, broker, msgClient)
+
 	conn, err := grpc.Dial(authGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("failed to connect to auth-service gRPC: %v", err)
@@ -66,9 +86,8 @@ func main() {
 	authClient := authpb.NewAuthServiceClient(conn)
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 
-	// HTTP сервер
 	r := chi.NewRouter()
-	r.Use(authMiddleware.Middleware) // применяем auth middleware ко всем роутам
+	r.Use(authMiddleware.Middleware)
 
 	chathttp.RegisterRoutes(r, chathttp.ChatDeps{
 		ChatService:        chatService,
@@ -76,13 +95,12 @@ func main() {
 	})
 
 	go func() {
-		log.Printf("🚀 HTTP server started on :%s\n", chatHTTPPort)
+		log.Printf("\U0001F680 HTTP server started on :%s\n", chatHTTPPort)
 		if err := http.ListenAndServe(":"+chatHTTPPort, r); err != nil {
 			log.Fatalf("HTTP server error: %v", err)
 		}
 	}()
 
-	// gRPC сервер
 	lis, err := net.Listen("tcp", ":"+chatGRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen on gRPC port: %v", err)
@@ -92,7 +110,7 @@ func main() {
 	grpcHandler := chatgrpc.NewChatHandler(chatService, bindingService)
 	chatpb.RegisterChatServiceServer(grpcServer, grpcHandler)
 
-	log.Printf("🚀 gRPC server started on :%s\n", chatGRPCPort)
+	log.Printf("\U0001F680 gRPC server started on :%s\n", chatGRPCPort)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("gRPC server error: %v", err)
 	}

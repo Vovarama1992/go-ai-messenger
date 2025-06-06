@@ -36,6 +36,12 @@ func (h *ChatBindingHandler) CreateOrUpdateBinding(w http.ResponseWriter, r *htt
 		return
 	}
 
+	userEmail, ok := middleware.GetUserEmail(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req bindRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -47,7 +53,7 @@ func (h *ChatBindingHandler) CreateOrUpdateBinding(w http.ResponseWriter, r *htt
 		return
 	}
 
-	err = h.service.UpdateBinding(r.Context(), userID, chatID, req.Type)
+	err = h.service.UpdateBinding(r.Context(), userEmail, userID, chatID, req.Type)
 	if err != nil {
 		http.Error(w, "failed to bind AI", http.StatusInternalServerError)
 		return

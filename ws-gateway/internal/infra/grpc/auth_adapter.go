@@ -15,10 +15,10 @@ func NewAuthService(client authpb.AuthServiceClient) ports.AuthService {
 	return &AuthServiceAdapter{client: client}
 }
 
-func (a *AuthServiceAdapter) ValidateToken(ctx context.Context, token string) (int64, error) {
+func (a *AuthServiceAdapter) ValidateToken(ctx context.Context, token string) (int64, string, error) {
 	resp, err := a.client.ValidateToken(ctx, &authpb.ValidateTokenRequest{Token: token})
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return resp.UserId, nil
+	return resp.UserId, resp.Email, nil
 }

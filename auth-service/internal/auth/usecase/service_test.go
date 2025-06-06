@@ -91,25 +91,27 @@ func TestLogin_Success(t *testing.T) {
 func TestValidateToken_Success(t *testing.T) {
 	service := NewAuthService(nil, getTestSecret())
 
-	// сгенерим валидный токен
 	token, err := service.Login(context.Background(), "test@example.com", "testpass")
 	if err != nil {
 		t.Fatalf("Не удалось создать токен: %v", err)
 	}
 
-	userID, err := service.ValidateToken(context.Background(), token)
+	userID, email, err := service.ValidateToken(context.Background(), token)
 	if err != nil {
 		t.Errorf("Не ожидалась ошибка: %v", err)
 	}
 	if userID == 0 {
 		t.Error("Ожидался userID > 0")
 	}
+	if email != "test@example.com" {
+		t.Errorf("Ожидался email 'test@example.com', а получил %s", email)
+	}
 }
 
 func TestValidateToken_InvalidFormat(t *testing.T) {
 	service := NewAuthService(nil, getTestSecret())
 
-	_, err := service.ValidateToken(context.Background(), "foobar.invalid.token")
+	_, _, err := service.ValidateToken(context.Background(), "foobar.invalid.token")
 	if err == nil {
 		t.Error("Ожидалась ошибка при невалидном токене")
 	}
@@ -119,12 +121,13 @@ func TestValidateToken_MissingSub(t *testing.T) {
 	service := NewAuthService(nil, getTestSecret())
 
 	claims := jwt.MapClaims{
-		"exp": time.Now().Add(1 * time.Hour).Unix(),
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
+		"email": "test@example.com",
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, _ := token.SignedString([]byte(getTestSecret()))
 
-	_, err := service.ValidateToken(context.Background(), signed)
+	_, _, err := service.ValidateToken(context.Background(), signed)
 	if err == nil {
 		t.Error("Ожидалась ошибка при отсутствии sub")
 	}

@@ -35,6 +35,19 @@ services:
     ports:
       - "9092:9092"
 
+  # 🤖 AI Service
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER}
+      TOPIC_AI_BINDING_INIT: chat.binding.init
+    depends_on:
+      - kafka
+    ports:
+      - "8085:8085"
+
   # 👤 User Service
   user-service:
     build:

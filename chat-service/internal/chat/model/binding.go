@@ -24,3 +24,17 @@ type ChatBinding struct {
 	Type      AIBindingType
 	CreatedAt int64
 }
+
+type AiBindingInitPayload struct {
+	ChatID    int64         `json:"chatId"`
+	UserID    int64         `json:"userId"`
+	Type      string        `json:"type"` // "advice" или "autoreply"
+	UserEmail string        `json:"senderEmail"`
+	Messages  []ChatMessage `json:"messages"`
+}
+
+type ChatMessage struct {
+	SenderEmail string `json:"senderEmail"`
+	Text        string `json:"text"`
+	SentAt      int64  `json:"sentAt"`
+}
