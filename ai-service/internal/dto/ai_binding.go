@@ -1,4 +1,4 @@
-package model
+package dto
 
 type ChatMessage struct {
 	SenderEmail string `json:"sender_email"`

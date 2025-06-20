@@ -74,3 +74,12 @@ func (r *ChatBindingRepo) FindBindingsByChatID(ctx context.Context, chatID int64
 
 	return bindings, nil
 }
+
+func (r *ChatBindingRepo) UpdateThreadID(ctx context.Context, chatID, userID int64, threadID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE chat_bindings 
+		SET thread_id = $1 
+		WHERE chat_id = $2 AND user_id = $3
+	`, threadID, chatID, userID)
+	return err
+}

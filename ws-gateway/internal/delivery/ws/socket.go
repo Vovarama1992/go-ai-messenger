@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"fmt"
+	"os"
 
 	socketio "github.com/googollee/go-socket.io"
 
@@ -21,6 +22,14 @@ func RegisterSocketHandlers(
 	kafkaProducer ports.KafkaProducer,
 	hub *Hub,
 ) {
+	// читаем топики из ENV
+	topicPersist := os.Getenv("TOPIC_MESSAGE_PERSIST")
+	topicFeed := os.Getenv("TOPIC_AI_FEED")
+
+	if topicPersist == "" || topicFeed == "" {
+		panic("❌ Required Kafka topic envs are not set")
+	}
+
 	server.OnConnect("/", func(s socketio.Conn) error {
 		u := s.URL()
 		token := u.Query().Get("token")
@@ -80,29 +89,16 @@ func RegisterSocketHandlers(
 			"text":        text,
 			"aiGenerated": false,
 		}
-		_ = kafkaProducer.Produce(ctx, "chat.message.persist", persistPayload)
+		_ = kafkaProducer.Produce(ctx, topicPersist, persistPayload)
 
-		// ai → email
-		aiPayload := map[string]interface{}{
-			"chatId":      chatID,
-			"senderEmail": user.Email,
-			"text":        text,
-			"aiGenerated": false,
-		}
+		// feed в AI
 		for _, b := range bindings {
-			if b.Type == "advice" {
-				_ = kafkaProducer.Produce(ctx, "chat.message.ai.advice-request", aiPayload)
-			}
-			if b.Type == "autoreply" {
-				replyPayload := map[string]interface{}{
-					"chatId":      chatID,
-					"senderEmail": user.Email,
-					"text":        text,
-					"aiGenerated": false,
-					"recipientId": b.UserID,
-				}
-				_ = kafkaProducer.Produce(ctx, "chat.message.ai.autoreply-request", replyPayload)
-			}
+			_ = kafkaProducer.Produce(ctx, topicFeed, map[string]interface{}{
+				"senderEmail": user.Email,
+				"text":        text,
+				"threadId":    b.ThreadID,
+				"bindingType": b.Type,
+			})
 		}
 	})
 }

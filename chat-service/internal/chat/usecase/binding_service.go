@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
@@ -66,6 +67,18 @@ func (s *ChatBindingService) UpdateBinding(ctx context.Context, userEmail string
 
 	// Привязка уже есть — обновляем
 	return s.repo.Update(ctx, binding)
+}
+
+func (s *ChatBindingService) HandleThreadCreated(res model.ThreadResult) {
+	ctx := context.Background()
+
+	err := s.repo.UpdateThreadID(ctx, res.ChatID, res.UserID, res.ThreadID)
+	if err != nil {
+		// тут можно кастомную обработку: retry, log-level, метрики и т.д.
+		log.Printf("❌ Failed to update threadID: %v", err)
+	} else {
+		log.Printf("✅ ThreadID updated: chatID=%d, userID=%d, threadID=%s", res.ChatID, res.UserID, res.ThreadID)
+	}
 }
 
 func (s *ChatBindingService) GetBinding(ctx context.Context, userID, chatID int64) (*model.ChatBinding, error) {

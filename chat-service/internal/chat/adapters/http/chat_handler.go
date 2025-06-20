@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"
@@ -64,4 +66,27 @@ func (h *ChatHandler) GetChatByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(chat)
+}
+
+func (h *ChatHandler) RequestAdvice(w http.ResponseWriter, r *http.Request) {
+	chatIDStr := chi.URLParam(r, "id")
+	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid chat ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	err = h.service.RequestAdvice(r.Context(), userID, chatID)
+	if err != nil {
+		http.Error(w, "failed to request advice: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }

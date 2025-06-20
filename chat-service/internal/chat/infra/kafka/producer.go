@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
@@ -19,29 +18,16 @@ type KafkaProducer struct {
 	writer             *kafka.Writer
 	aiBindingInitTopic string
 	mu                 sync.Mutex
+	adviceTopic        string
 	closed             bool
 }
 
-func NewKafkaProducer(aiBindingInitTopic string) *KafkaProducer {
-	broker := os.Getenv("KAFKA_BROKER")
-	if broker == "" {
-		broker = "kafka:9092"
-	}
-
-	writer := &kafka.Writer{
-		Addr:     kafka.TCP(broker),
-		Balancer: &kafka.LeastBytes{},
-	}
-
+func NewKafkaProducer(bindingInitTopic, adviceTopic string, writer *kafka.Writer) *KafkaProducer {
 	return &KafkaProducer{
 		writer:             writer,
-		aiBindingInitTopic: aiBindingInitTopic,
+		aiBindingInitTopic: bindingInitTopic,
+		adviceTopic:        adviceTopic,
 	}
-}
-
-// Start — если нужно будет запускать, сейчас просто заглушка
-func (p *KafkaProducer) Start() error {
-	return nil
 }
 
 func (p *KafkaProducer) Produce(ctx context.Context, topic string, payload interface{}) error {
@@ -91,4 +77,15 @@ func (p *KafkaProducer) Stop() error {
 
 func (p *KafkaProducer) SendAiBindingInit(ctx context.Context, payload model.AiBindingInitPayload) error {
 	return p.Produce(ctx, p.aiBindingInitTopic, payload)
+}
+
+func (p *KafkaProducer) SendAdviceRequest(ctx context.Context, payload model.AdviceRequestPayload) error {
+	return p.Produce(ctx, p.adviceTopic, payload)
+}
+
+func (p *KafkaProducer) PublishAdviceRequest(threadID string) error {
+	payload := model.AdviceRequestPayload{
+		ThreadID: threadID,
+	}
+	return p.SendAdviceRequest(context.Background(), payload)
 }

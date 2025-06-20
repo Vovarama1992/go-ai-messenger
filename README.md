@@ -58,7 +58,7 @@ Swagger подключается ко всем HTTP-сервисам
 | auth-service    | JWT-аутентификация, login/register | user-service               | ❌                                |
 | user-service    | Хранение пользователей             | —                          | ❌                                |
 | chat-service    | Чаты, AI-привязка                  | auth-service, user-service | ❌                                |
-| message-service | Сохранение сообщений               | chat-service (optional)    | ✅ consume `chat.message.persist` |
+| message-service | Сохранение сообщений               | chat-service (optional)    | ✅ consume `chat.message.persist` `chat.message.ai-autoreply` |
 
 ### WebSocket
 
@@ -66,7 +66,7 @@ Swagger подключается ко всем HTTP-сервисам
 | ------------ | ----------------------------------------- | -------------------------------------------------------------------- |
 | ws-gateway   | produce: persist, forward consume: forward | Один сервис, масштабируется (replicas) + sticky session/Redis pubsub |
 | ws-ai-advice | consume: ai-advice                        | Пуш ответа AI-совета в `user:{id}`                                   |
-| ws-autoreply | consume: forward                          | Фильтр AI-автоответов (senderId == targetUserId)                     |
+| ws-autoreply | consume: forward                          | Фильтр AI-автоответов                   |
 
 ### AI Service
 
@@ -152,6 +152,7 @@ go-ai-messenger/
 | user-service    | ✅ с мок repo         | в планах       |                                       |
 | chat-service    | в разработке         | —              |                                       |
 | message-service | пока нет             | пока нет       | запланирован Kafka consumer + persist |
+| ai-service      | ✅ покрыт             | пока нет       | Все pipeline'ы готовы (binding, feed, advice), пушит в Kafka топики для WebSocket |
 
 ---
 
@@ -165,4 +166,21 @@ go-ai-messenger/
 - Kubernetes — целевая среда
 - CI/мейк: `make test`, `make lint`, `make run`, `make migrate`
 
-НЕ ЗАБЫТЬ В КОНЦЕ ОБЕРНУТЬ ВСЕ В СВАГГЕР И НАПИСТАЬ МИГРАЦИИ И МЕЙК ФАЙЛ 
+
+
+🛠 **TODO**
+
+### MVP / Infrastructure
+- [ ] Подписка **message-service** на топик автоответов (`TOPIC_AI_AUTOREPLY`) → сохранять их в БД
+- [ ] Обернуть всё в Swagger
+- [ ] Написать миграции
+- [ ] Написать Makefile с командами `make run`, `make lint`, `make migrate`
+- [ ] Добавить retry и отказоустойчивость при работе с Kafka (producer и consumer)
+
+### AI Enhancements (Nice to have)
+- [ ] Поддержка кастомных промптов на уровне привязки (user → chat)
+- [ ] GPT возвращает JSON с полем `kafkaTopic`, система сама решает, публиковать ли ответ, и куда
+- [ ] Расширенные режимы binding’ов:
+  - `autoreply:delay`, `autoreply:mention-sensitive`, `autoreply:smart`
+  - Пример: *отвечай, если упоминают пользователя + есть токсичность*
+- [ ] Поддержка логики “просто пополняем историю”, если тип binding-а не предполагает ответов

@@ -11,6 +11,7 @@ func RegisterRoutes(r chi.Router, deps ChatDeps) {
 	r.Route("/chats", func(r chi.Router) {
 		r.Post("/", chat.CreateChat)
 		r.Get("/", chat.GetChatByID)
+		r.Post("/{id}/advice", chat.RequestAdvice) // 💥 новый endpoint
 	})
 
 	r.Route("/bindings", func(r chi.Router) {

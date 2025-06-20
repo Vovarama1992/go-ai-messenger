@@ -20,6 +20,7 @@ func (a AIBindingType) IsValid() error {
 
 type ChatBinding struct {
 	ChatID    int64
+	ThreadID  string
 	UserID    int64
 	Type      AIBindingType
 	CreatedAt int64

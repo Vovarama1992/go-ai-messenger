@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/mocks"
+	mocks "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/mocks"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	"go.uber.org/mock/gomock"
@@ -14,11 +14,21 @@ import (
 
 var ErrNotFound = errors.New("chat not found")
 
-func TestCreateChat_Success(t *testing.T) {
+func newChatServiceWithMocks(t *testing.T) (*gomock.Controller, *mocks.MockChatRepository, *usecase.ChatService) {
 	ctrl := gomock.NewController(t)
+	mockRepo := mocks.NewMockChatRepository(ctrl)
+	mockBindingRepo := mocks.NewMockChatBindingRepository(ctrl)
+	mockAdvicePublisher := mocks.NewMockAdvicePublisher(ctrl)
+
+	service := usecase.NewChatService(mockRepo, mockBindingRepo, mockAdvicePublisher)
+
+	return ctrl, mockRepo, service
+}
+
+func TestCreateChat_Success(t *testing.T) {
+	ctrl, mockRepo, service := newChatServiceWithMocks(t)
 	defer ctrl.Finish()
 
-	mockRepo := mocks.NewMockChatRepository(ctrl)
 	mockRepo.EXPECT().
 		Create(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, chat *model.Chat) error {
@@ -26,8 +36,6 @@ func TestCreateChat_Success(t *testing.T) {
 			chat.CreatedAt = time.Now().Unix()
 			return nil
 		})
-
-	service := usecase.NewChatService(mockRepo)
 
 	chatType := model.ChatTypePrivate
 	chat, err := service.CreateChat(context.Background(), 123, chatType)
@@ -46,7 +54,10 @@ func TestCreateChat_Success(t *testing.T) {
 }
 
 func TestCreateChat_InvalidType(t *testing.T) {
-	service := usecase.NewChatService(nil)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := usecase.NewChatService(nil, nil, nil)
 
 	invalidType := model.ChatType("invalid")
 
@@ -57,10 +68,9 @@ func TestCreateChat_InvalidType(t *testing.T) {
 }
 
 func TestGetChatByID_Success(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, mockRepo, service := newChatServiceWithMocks(t)
 	defer ctrl.Finish()
 
-	mockRepo := mocks.NewMockChatRepository(ctrl)
 	expectedChat := &model.Chat{
 		ID:        1,
 		CreatorID: 123,
@@ -72,8 +82,6 @@ func TestGetChatByID_Success(t *testing.T) {
 		FindByID(gomock.Any(), int64(1)).
 		Return(expectedChat, nil)
 
-	service := usecase.NewChatService(mockRepo)
-
 	chat, err := service.GetChatByID(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -84,18 +92,124 @@ func TestGetChatByID_Success(t *testing.T) {
 }
 
 func TestGetChatByID_NotFound(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, mockRepo, service := newChatServiceWithMocks(t)
 	defer ctrl.Finish()
 
-	mockRepo := mocks.NewMockChatRepository(ctrl)
 	mockRepo.EXPECT().
 		FindByID(gomock.Any(), int64(1)).
-		Return(nil, ErrNotFound) // Определи ErrNotFound в usecase
-
-	service := usecase.NewChatService(mockRepo)
+		Return(nil, ErrNotFound)
 
 	_, err := service.GetChatByID(context.Background(), 1)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRequestAdvice_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockChatRepo := mocks.NewMockChatRepository(ctrl)
+	mockBindingRepo := mocks.NewMockChatBindingRepository(ctrl)
+	mockAdvice := mocks.NewMockAdvicePublisher(ctrl)
+
+	binding := &model.ChatBinding{
+		ChatID:   1,
+		UserID:   123,
+		Type:     model.AIBindingAdvice,
+		ThreadID: "thread_abc123",
+	}
+
+	mockBindingRepo.EXPECT().
+		FindByUserAndChat(gomock.Any(), int64(123), int64(1)).
+		Return(binding, nil)
+
+	mockAdvice.EXPECT().
+		PublishAdviceRequest("thread_abc123").
+		Return(nil)
+
+	service := usecase.NewChatService(mockChatRepo, mockBindingRepo, mockAdvice)
+
+	err := service.RequestAdvice(context.Background(), 123, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRequestAdvice_BindingNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockChatRepo := mocks.NewMockChatRepository(ctrl)
+	mockBindingRepo := mocks.NewMockChatBindingRepository(ctrl)
+	mockAdvice := mocks.NewMockAdvicePublisher(ctrl)
+
+	mockBindingRepo.EXPECT().
+		FindByUserAndChat(gomock.Any(), int64(123), int64(1)).
+		Return(nil, errors.New("not found"))
+
+	service := usecase.NewChatService(mockChatRepo, mockBindingRepo, mockAdvice)
+
+	err := service.RequestAdvice(context.Background(), 123, 1)
+	if err == nil {
+		t.Fatal("expected error for missing binding, got nil")
+	}
+}
+
+func TestRequestAdvice_WrongType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockChatRepo := mocks.NewMockChatRepository(ctrl)
+	mockBindingRepo := mocks.NewMockChatBindingRepository(ctrl)
+	mockAdvice := mocks.NewMockAdvicePublisher(ctrl)
+
+	binding := &model.ChatBinding{
+		ChatID:   1,
+		UserID:   123,
+		Type:     model.AIBindingAutoreply, // ⛔ не advice
+		ThreadID: "thread_abc123",
+	}
+
+	mockBindingRepo.EXPECT().
+		FindByUserAndChat(gomock.Any(), int64(123), int64(1)).
+		Return(binding, nil)
+
+	service := usecase.NewChatService(mockChatRepo, mockBindingRepo, mockAdvice)
+
+	err := service.RequestAdvice(context.Background(), 123, 1)
+	if err == nil {
+		t.Fatal("expected error for wrong binding type, got nil")
+	}
+}
+
+func TestRequestAdvice_PublishFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockChatRepo := mocks.NewMockChatRepository(ctrl)
+	mockBindingRepo := mocks.NewMockChatBindingRepository(ctrl)
+	mockAdvice := mocks.NewMockAdvicePublisher(ctrl)
+
+	binding := &model.ChatBinding{
+		ChatID:   1,
+		UserID:   123,
+		Type:     model.AIBindingAdvice,
+		ThreadID: "thread_abc123",
+	}
+
+	mockBindingRepo.EXPECT().
+		FindByUserAndChat(gomock.Any(), int64(123), int64(1)).
+		Return(binding, nil)
+
+	mockAdvice.EXPECT().
+		PublishAdviceRequest("thread_abc123").
+		Return(errors.New("kafka error"))
+
+	service := usecase.NewChatService(mockChatRepo, mockBindingRepo, mockAdvice)
+
+	err := service.RequestAdvice(context.Background(), 123, 1)
+	if err == nil {
+		t.Fatal("expected error from publisher, got nil")
 	}
 }

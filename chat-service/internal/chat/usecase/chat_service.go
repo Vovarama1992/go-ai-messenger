@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
@@ -9,11 +10,21 @@ import (
 )
 
 type ChatService struct {
-	repo ports.ChatRepository
+	chatrepo        ports.ChatRepository
+	bindingRepo     ports.ChatBindingRepository
+	advicePublisher ports.AdvicePublisher
 }
 
-func NewChatService(repo ports.ChatRepository) *ChatService {
-	return &ChatService{repo: repo}
+func NewChatService(
+	chatrepo ports.ChatRepository,
+	bindingRepo ports.ChatBindingRepository,
+	advicePublisher ports.AdvicePublisher,
+) *ChatService {
+	return &ChatService{
+		chatrepo:        chatrepo,
+		bindingRepo:     bindingRepo,
+		advicePublisher: advicePublisher,
+	}
 }
 
 func (s *ChatService) CreateChat(ctx context.Context, userID int64, chatType model.ChatType) (*model.Chat, error) {
@@ -27,7 +38,7 @@ func (s *ChatService) CreateChat(ctx context.Context, userID int64, chatType mod
 		CreatedAt: time.Now().Unix(),
 	}
 
-	if err := s.repo.Create(ctx, chat); err != nil {
+	if err := s.chatrepo.Create(ctx, chat); err != nil {
 		return nil, err
 	}
 
@@ -35,5 +46,17 @@ func (s *ChatService) CreateChat(ctx context.Context, userID int64, chatType mod
 }
 
 func (s *ChatService) GetChatByID(ctx context.Context, id int64) (*model.Chat, error) {
-	return s.repo.FindByID(ctx, id)
+	return s.chatrepo.FindByID(ctx, id)
+}
+
+func (s *ChatService) RequestAdvice(ctx context.Context, userID int64, chatID int64) error {
+	binding, err := s.bindingRepo.FindByUserAndChat(ctx, userID, chatID)
+	if err != nil {
+		return err
+	}
+	if binding.Type != model.AIBindingAdvice {
+		return fmt.Errorf("binding is not of type 'advice'")
+	}
+
+	return s.advicePublisher.PublishAdviceRequest(binding.ThreadID)
 }
