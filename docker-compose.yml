@@ -113,5 +113,16 @@ services:
     ports:
       - "8084:8084"
 
+  ws-ai-advice:
+    build:
+      context: .
+      dockerfile: ws-ai-advice/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - kafka
+    ports:
+      - "${WS_AI_ADVICE_PORT}:${WS_AI_ADVICE_PORT}"
+
 volumes:
   postgres_data:

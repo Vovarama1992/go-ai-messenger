@@ -13,4 +13,5 @@ type ChatBindingRepository interface {
 	Update(ctx context.Context, binding *model.ChatBinding) error
 	Delete(ctx context.Context, userID, chatID int64) error
 	FindBindingsByChatID(ctx context.Context, chatID int64) ([]*model.ChatBinding, error)
+	FindByThreadID(ctx context.Context, threadID string) (*model.ChatBinding, error)
 }

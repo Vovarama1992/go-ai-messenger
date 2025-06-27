@@ -129,6 +129,14 @@ func (c *Client) GetAdvice(
 	ctx context.Context,
 	threadID string,
 ) (string, error) {
+	// Проверка контекста перед выполнением запроса
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err() // если контекст отменен, сразу выходим
+	default:
+		// продолжаем выполнение
+	}
+
 	// 1. Добавляем сообщение "бро, дай совет"
 	_, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
 		Role:    openai.ChatMessageRoleUser,
@@ -148,22 +156,33 @@ func (c *Client) GetAdvice(
 
 	// 3. Ждём ответа
 	for {
-		run, err = c.api.RetrieveRun(ctx, threadID, run.ID)
-		if err != nil {
-			return "", fmt.Errorf("failed to retrieve run: %w", err)
-		}
-		if run.Status == openai.RunStatusCompleted {
-			break
-		}
-		if run.Status == openai.RunStatusFailed {
-			return "", fmt.Errorf("advice run failed")
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err() // если контекст отменен — выходим с ошибкой
+		default:
+			run, err = c.api.RetrieveRun(ctx, threadID, run.ID)
+			if err != nil {
+				return "", fmt.Errorf("failed to retrieve run: %w", err)
+			}
+			if run.Status == openai.RunStatusCompleted {
+				break
+			}
+			if run.Status == openai.RunStatusFailed {
+				return "", fmt.Errorf("advice run failed")
+			}
 		}
 	}
 
 	// 4. Читаем последний ответ
-	list, err := c.api.ListMessages(ctx, threadID, nil)
-	if err != nil || len(list.Messages) == 0 {
-		return "", fmt.Errorf("failed to list messages: %w", err)
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err() // если контекст отменен — выходим с ошибкой
+	default:
+		// продолжаем выполнение
+		list, err := c.api.ListMessages(ctx, threadID, nil)
+		if err != nil || len(list.Messages) == 0 {
+			return "", fmt.Errorf("failed to list messages: %w", err)
+		}
+		return list.Messages[0].Content[0].Text.Value, nil
 	}
-	return list.Messages[0].Content[0].Text.Value, nil
 }

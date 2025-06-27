@@ -92,3 +92,7 @@ func (s *ChatBindingService) DeleteBinding(ctx context.Context, userID, chatID i
 func (s *ChatBindingService) GetBindingsByChat(ctx context.Context, chatID int64) ([]*model.ChatBinding, error) {
 	return s.repo.FindBindingsByChatID(ctx, chatID)
 }
+
+func (s *ChatBindingService) FindByThreadID(ctx context.Context, threadID string) (*model.ChatBinding, error) {
+	return s.repo.FindByThreadID(ctx, threadID)
+}

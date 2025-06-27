@@ -19,6 +19,7 @@ import (
 	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
 	chatpb "github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 	messagepb "github.com/Vovarama1992/go-ai-messenger/proto/messagepb"
+	userpb "github.com/Vovarama1992/go-ai-messenger/proto/userpb"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
@@ -35,6 +36,7 @@ func main() {
 	chatGRPCPort := getEnvOrDefault("CHAT_GRPC_PORT", "50053")
 	authGRPCAddr := getEnvOrDefault("AUTH_SERVICE_GRPC_ADDR", "auth-service:50052")
 	messageGRPCAddr := os.Getenv("MESSAGE_SERVICE_GRPC_ADDR")
+	userGRPCAddr := os.Getenv("USER_SERVICE_GRPC_ADDR")
 	bindingTopic := os.Getenv("TOPIC_AI_BINDING_INIT")
 	resultTopic := os.Getenv("TOPIC_AI_THREAD_CREATED")
 	adviceTopic := os.Getenv("TOPIC_AI_ADVICE_REQUEST")
@@ -64,11 +66,14 @@ func main() {
 
 	// Message gRPC client
 	msgConn, err := grpc.Dial(messageGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	userConn, err := grpc.Dial(userGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("❌ failed to connect to message-service gRPC: %v", err)
 	}
 	defer msgConn.Close()
 	msgClient := grpcclient.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
+	userClient := grpcclient.NewGrpcUserClient(userpb.NewUserServiceClient(userConn))
+	userService := usecase.NewUserService(userClient)
 
 	// Services
 	chatService := usecase.NewChatService(chatRepo, bindingRepo, chatproducer) // ✅ передаем producer
@@ -107,7 +112,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	grpcHandler := chatgrpc.NewChatHandler(chatService, bindingService)
+	grpcHandler := chatgrpc.NewChatHandler(chatService, bindingService, userService)
 	chatpb.RegisterChatServiceServer(grpcServer, grpcHandler)
 
 	log.Printf("🚀 gRPC server started on :%s", chatGRPCPort)

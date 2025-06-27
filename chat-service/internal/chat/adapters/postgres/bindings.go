@@ -83,3 +83,18 @@ func (r *ChatBindingRepo) UpdateThreadID(ctx context.Context, chatID, userID int
 	`, threadID, chatID, userID)
 	return err
 }
+
+func (r *ChatBindingRepo) FindByThreadID(ctx context.Context, threadID string) (*model.ChatBinding, error) {
+	query := `SELECT chat_id, user_id FROM chat_bindings WHERE thread_id = $1`
+
+	var b model.ChatBinding
+	err := r.db.QueryRowContext(ctx, query, threadID).Scan(
+		&b.ChatID,
+		&b.UserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &b, nil
+}

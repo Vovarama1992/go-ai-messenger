@@ -7,6 +7,7 @@ option go_package = "github.com/Vovarama1992/go-ai-messenger/proto/chatpb;chatpb
 service ChatService {
   rpc GetChatByID (GetChatByIDRequest) returns (GetChatByIDResponse);
   rpc GetBindingsByChat (GetBindingsByChatRequest) returns (GetBindingsByChatResponse);
+  rpc GetUserWithChatByThreadID (GetUserWithChatByThreadIDRequest) returns (GetUserWithChatByThreadIDResponse);
 }
 
 message GetChatByIDRequest {
@@ -31,4 +32,14 @@ message ChatBinding {
 
 message GetBindingsByChatResponse {
   repeated ChatBinding bindings = 1;
+}
+
+message GetUserWithChatByThreadIDRequest {
+  string thread_id = 1;
+}
+
+message GetUserWithChatByThreadIDResponse {
+  int64 user_id = 1;
+  int64 chat_id = 2;
+  string user_email = 3;
 }

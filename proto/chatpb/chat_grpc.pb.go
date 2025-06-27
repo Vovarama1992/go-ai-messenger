@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v3.21.12
-// source: proto/chat.proto
+// source: proto/chatpb/chat.proto
 
 package chatpb
 
@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ChatService_GetChatByID_FullMethodName       = "/chatpb.ChatService/GetChatByID"
-	ChatService_GetBindingsByChat_FullMethodName = "/chatpb.ChatService/GetBindingsByChat"
+	ChatService_GetChatByID_FullMethodName               = "/chatpb.ChatService/GetChatByID"
+	ChatService_GetBindingsByChat_FullMethodName         = "/chatpb.ChatService/GetBindingsByChat"
+	ChatService_GetUserWithChatByThreadID_FullMethodName = "/chatpb.ChatService/GetUserWithChatByThreadID"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -29,6 +30,7 @@ const (
 type ChatServiceClient interface {
 	GetChatByID(ctx context.Context, in *GetChatByIDRequest, opts ...grpc.CallOption) (*GetChatByIDResponse, error)
 	GetBindingsByChat(ctx context.Context, in *GetBindingsByChatRequest, opts ...grpc.CallOption) (*GetBindingsByChatResponse, error)
+	GetUserWithChatByThreadID(ctx context.Context, in *GetUserWithChatByThreadIDRequest, opts ...grpc.CallOption) (*GetUserWithChatByThreadIDResponse, error)
 }
 
 type chatServiceClient struct {
@@ -57,12 +59,22 @@ func (c *chatServiceClient) GetBindingsByChat(ctx context.Context, in *GetBindin
 	return out, nil
 }
 
+func (c *chatServiceClient) GetUserWithChatByThreadID(ctx context.Context, in *GetUserWithChatByThreadIDRequest, opts ...grpc.CallOption) (*GetUserWithChatByThreadIDResponse, error) {
+	out := new(GetUserWithChatByThreadIDResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetUserWithChatByThreadID_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility
 type ChatServiceServer interface {
 	GetChatByID(context.Context, *GetChatByIDRequest) (*GetChatByIDResponse, error)
 	GetBindingsByChat(context.Context, *GetBindingsByChatRequest) (*GetBindingsByChatResponse, error)
+	GetUserWithChatByThreadID(context.Context, *GetUserWithChatByThreadIDRequest) (*GetUserWithChatByThreadIDResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -75,6 +87,9 @@ func (UnimplementedChatServiceServer) GetChatByID(context.Context, *GetChatByIDR
 }
 func (UnimplementedChatServiceServer) GetBindingsByChat(context.Context, *GetBindingsByChatRequest) (*GetBindingsByChatResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBindingsByChat not implemented")
+}
+func (UnimplementedChatServiceServer) GetUserWithChatByThreadID(context.Context, *GetUserWithChatByThreadIDRequest) (*GetUserWithChatByThreadIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserWithChatByThreadID not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 
@@ -125,6 +140,24 @@ func _ChatService_GetBindingsByChat_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetUserWithChatByThreadID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserWithChatByThreadIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetUserWithChatByThreadID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetUserWithChatByThreadID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetUserWithChatByThreadID(ctx, req.(*GetUserWithChatByThreadIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,7 +173,11 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetBindingsByChat",
 			Handler:    _ChatService_GetBindingsByChat_Handler,
 		},
+		{
+			MethodName: "GetUserWithChatByThreadID",
+			Handler:    _ChatService_GetUserWithChatByThreadID_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/chat.proto",
+	Metadata: "proto/chatpb/chat.proto",
 }

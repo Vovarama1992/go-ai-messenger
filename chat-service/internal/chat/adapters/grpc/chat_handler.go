@@ -11,12 +11,14 @@ type ChatHandler struct {
 	chatpb.UnimplementedChatServiceServer
 	chatService    *usecase.ChatService
 	bindingService *usecase.ChatBindingService
+	userService    *usecase.UserService
 }
 
-func NewChatHandler(chatService *usecase.ChatService, bindingService *usecase.ChatBindingService) *ChatHandler {
+func NewChatHandler(chatService *usecase.ChatService, bindingService *usecase.ChatBindingService, userService *usecase.UserService) *ChatHandler {
 	return &ChatHandler{
 		chatService:    chatService,
 		bindingService: bindingService,
+		userService:    userService,
 	}
 }
 
@@ -49,4 +51,22 @@ func (h *ChatHandler) GetBindingsByChat(ctx context.Context, req *chatpb.GetBind
 	}
 
 	return &resp, nil
+}
+
+func (h *ChatHandler) GetUserWithChatByThreadID(ctx context.Context, req *chatpb.GetUserWithChatByThreadIDRequest) (*chatpb.GetUserWithChatByThreadIDResponse, error) {
+	binding, err := h.bindingService.FindByThreadID(ctx, req.ThreadId)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := h.userService.GetUserByID(ctx, binding.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &chatpb.GetUserWithChatByThreadIDResponse{
+		UserId:    binding.UserID,
+		ChatId:    binding.ChatID,
+		UserEmail: user.Email,
+	}, nil
 }
