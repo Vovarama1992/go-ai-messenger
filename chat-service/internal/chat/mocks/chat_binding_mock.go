@@ -84,6 +84,21 @@ func (mr *MockChatBindingRepositoryMockRecorder) FindBindingsByChatID(ctx, chatI
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindBindingsByChatID", reflect.TypeOf((*MockChatBindingRepository)(nil).FindBindingsByChatID), ctx, chatID)
 }
 
+// FindByThreadID mocks base method.
+func (m *MockChatBindingRepository) FindByThreadID(ctx context.Context, threadID string) (*model.ChatBinding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByThreadID", ctx, threadID)
+	ret0, _ := ret[0].(*model.ChatBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByThreadID indicates an expected call of FindByThreadID.
+func (mr *MockChatBindingRepositoryMockRecorder) FindByThreadID(ctx, threadID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByThreadID", reflect.TypeOf((*MockChatBindingRepository)(nil).FindByThreadID), ctx, threadID)
+}
+
 // FindByUserAndChat mocks base method.
 func (m *MockChatBindingRepository) FindByUserAndChat(ctx context.Context, userID, chatID int64) (*model.ChatBinding, error) {
 	m.ctrl.T.Helper()

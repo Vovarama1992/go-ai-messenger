@@ -13,12 +13,17 @@ import (
 )
 
 type adviceConsumer struct {
-	reader *kafka.Reader
+	reader kafkaReader
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
 }
 
-func NewAdviceConsumer(reader *kafka.Reader) ports.AdviceConsumer {
+type kafkaReader interface {
+	ReadMessage(ctx context.Context) (kafka.Message, error)
+	Close() error
+}
+
+func NewAdviceConsumer(reader kafkaReader) ports.AdviceConsumer {
 	return &adviceConsumer{reader: reader}
 }
 
