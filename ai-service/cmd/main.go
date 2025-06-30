@@ -28,6 +28,7 @@ func main() {
 	topicThreadCreated := os.Getenv("TOPIC_AI_THREAD_CREATED")
 	topicAiFeed := os.Getenv("TOPIC_AI_FEED")
 	topicAiAutoreply := os.Getenv("TOPIC_AI_AUTOREPLY")
+	topicPersist := os.Getenv("TOPIC_MESSAGE_PERSIST")
 	topicAdviceReq := os.Getenv("TOPIC_AI_ADVICE_REQUEST")
 	topicAdviceResp := os.Getenv("TOPIC_AI_ADVICE_RESPONSE")
 
@@ -45,7 +46,7 @@ func main() {
 
 	// Kafka writers
 	threadWriter := kafka.NewKafkaWriter(broker, topicThreadCreated)
-	autoreplyWriter := kafka.NewKafkaWriter(broker, topicAiAutoreply)
+	autoreplyWriter := kafka.NewKafkaWriter(broker, topicAiAutoreply, topicPersist)
 	adviceWriter := kafka.NewKafkaWriter(broker, topicAdviceResp)
 
 	// Binding pipeline

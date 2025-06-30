@@ -8,8 +8,8 @@ type ForwardListener struct {
 	consumer kafkaadapter.ForwardConsumerInterface
 }
 
-func NewForwardListener(hub *Hub) *ForwardListener {
-	consumer := kafkaadapter.NewForwardConsumer("chat.message.forward", func(msg kafkaadapter.ForwardMessage) {
+func NewForwardListener(hub *Hub, topic string) *ForwardListener {
+	consumer := kafkaadapter.NewForwardConsumer(topic, func(msg kafkaadapter.ForwardMessage) {
 		for userID := range hub.sockets {
 			hub.Send(userID, "message", msg)
 		}

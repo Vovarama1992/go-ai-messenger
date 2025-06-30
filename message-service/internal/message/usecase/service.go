@@ -12,6 +12,7 @@ import (
 type MessageService struct {
 	repo       ports.MessageRepo
 	userClient ports.UserClient
+	chatClient ports.ChatClient
 }
 
 func NewMessageService(repo ports.MessageRepo, userClient ports.UserClient) *MessageService {
@@ -54,4 +55,8 @@ func (s *MessageService) GetMessagesByChat(ctx context.Context, chatID int64) ([
 	}
 
 	return pbMessages, nil
+}
+
+func (s *MessageService) ResolveThreadInfo(ctx context.Context, threadID string) (*ports.ThreadInfo, error) {
+	return s.chatClient.GetThreadInfo(ctx, threadID)
 }

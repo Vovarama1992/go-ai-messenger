@@ -13,18 +13,30 @@ import (
 
 	messagegrpc "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/delivery/grpc"
 	deliveryKafka "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/delivery/kafka"
+	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/dto"
+	chatadapter "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/chatgrpc"
 	infraKafka "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/kafka"
 	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/postgres"
 	useradapter "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/usergrpc"
 	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/usecase"
+	chatpb "github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 	messagepb "github.com/Vovarama1992/go-ai-messenger/proto/messagepb"
 	userpb "github.com/Vovarama1992/go-ai-messenger/proto/userpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
+
+	topicPersist := os.Getenv("TOPIC_MESSAGE_PERSIST")
+
+	consumerCount, err := strconv.Atoi(os.Getenv("TOPIC_MESSAGE_PERSIST_CONSUMER_COUNT"))
+	if err != nil || consumerCount <= 0 {
+		log.Printf("⚠️  Invalid or unset TOPIC_MESSAGE_PERSIST_CONSUMER_COUNT, defaulting to 1")
+		consumerCount = 1
+	}
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -43,18 +55,30 @@ func main() {
 	if userServiceAddr == "" {
 		userServiceAddr = "localhost:50052"
 	}
-
-	userConn, err := grpc.Dial(userServiceAddr, grpc.WithInsecure())
+	userConn, err := grpc.Dial(userServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to user-service: %v", err)
 	}
 	defer userConn.Close()
 
-	userGRPC := userpb.NewUserServiceClient(userConn) // как у тебя уже есть
+	userGRPC := userpb.NewUserServiceClient(userConn)
 	userClient := useradapter.NewUserClient(userGRPC)
 
+	chatServiceAddr := os.Getenv("CHAT_GRPC_ADDR")
+	if chatServiceAddr == "" {
+		chatServiceAddr = "localhost:50053"
+	}
+	chatConn, err := grpc.Dial(chatServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to chat-service: %v", err)
+	}
+	defer chatConn.Close()
+
+	chatGRPC := chatpb.NewChatServiceClient(chatConn)
+	chatClient := chatadapter.NewChatClient(chatGRPC)
+
 	messageService := usecase.NewMessageService(repo, userClient)
-	processor := deliveryKafka.NewKafkaMessageProcessor(messageService)
+	processor := postgres.NewDefaultMessageProcessor(messageService, chatClient)
 
 	workerCount := 4
 	if wcStr := os.Getenv("CHAT_MESSAGE_PERSIST_WORKER_COUNT"); wcStr != "" {
@@ -65,9 +89,14 @@ func main() {
 		}
 	}
 
-	reader := infraKafka.NewKafkaReader("chat.message.persist", "message-group")
-	infraKafka.StartKafkaConsumer(ctx, reader)
-	deliveryKafka.StartMessageWorkers(ctx, wg, processor, workerCount)
+	msgChan := make(chan dto.IncomingMessage, 100)
+
+	for i := 0; i < consumerCount; i++ {
+		reader := infraKafka.NewKafkaReader(topicPersist, "message-group")
+		infraKafka.StartKafkaConsumer(ctx, reader, msgChan)
+	}
+
+	deliveryKafka.StartMessageWorkers(ctx, wg, processor, msgChan, workerCount)
 
 	grpcServer := grpc.NewServer()
 	messageHandler := messagegrpc.NewMessageHandler(messageService)

@@ -23,6 +23,11 @@ func main() {
 		log.Fatal("WS_GATEWAY_PORT is not set")
 	}
 
+	forwardTopic := os.Getenv("TOPIC_FORWARD_MESSAGE")
+	if forwardTopic == "" {
+		log.Fatal("TOPIC_FORWARD_MESSAGE is not set")
+	}
+
 	authAddr := os.Getenv("AUTH_SERVICE_GRPC_ADDR")
 	if authAddr == "" {
 		log.Fatal("AUTH_SERVICE_GRPC_ADDR is not set")
@@ -64,7 +69,7 @@ func main() {
 	server := socketio.NewServer(nil)
 	ws.RegisterSocketHandlers(server, authService, chatService, producer, hub)
 
-	listener := ws.NewForwardListener(hub)
+	listener := ws.NewForwardListener(hub, forwardTopic)
 	listener.Start()
 	defer listener.Stop()
 

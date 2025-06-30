@@ -10,7 +10,7 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
-func StartKafkaConsumer(ctx context.Context, r *kafka.Reader) {
+func StartKafkaConsumer(ctx context.Context, r *kafka.Reader, out chan<- dto.IncomingMessage) {
 	go func() {
 		defer r.Close()
 		log.Println("📥 Kafka consumer started")
@@ -20,7 +20,6 @@ func StartKafkaConsumer(ctx context.Context, r *kafka.Reader) {
 			case <-ctx.Done():
 				log.Println("🛑 Kafka consumer shutdown")
 				return
-
 			default:
 				m, err := r.ReadMessage(ctx)
 				if err != nil {
@@ -34,7 +33,7 @@ func StartKafkaConsumer(ctx context.Context, r *kafka.Reader) {
 					continue
 				}
 
-				MessageChan <- msg
+				out <- msg
 			}
 		}
 	}()
