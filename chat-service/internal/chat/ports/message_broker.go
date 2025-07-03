@@ -8,4 +8,5 @@ import (
 
 type MessageBroker interface {
 	SendAiBindingInit(ctx context.Context, payload model.AiBindingInitPayload) error
+	SendInvite(ctx context.Context, payload interface{}, topic string) error
 }

@@ -33,3 +33,14 @@ func (a *ChatServiceAdapter) GetBindingsByChat(ctx context.Context, chatID int64
 
 	return bindings, nil
 }
+
+func (a *ChatServiceAdapter) GetUsersByChatID(ctx context.Context, chatID int64) ([]int64, error) {
+	resp, err := a.client.GetUsersByChatID(ctx, &chatpb.GetUsersByChatIDRequest{
+		ChatId: chatID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.UserIds, nil
+}

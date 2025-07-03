@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	socketio "github.com/googollee/go-socket.io"
 	"google.golang.org/grpc"
@@ -26,6 +28,24 @@ func main() {
 	forwardTopic := os.Getenv("TOPIC_FORWARD_MESSAGE")
 	if forwardTopic == "" {
 		log.Fatal("TOPIC_FORWARD_MESSAGE is not set")
+	}
+
+	inviteTopic := os.Getenv("TOPIC_CHAT_INVITE")
+	if inviteTopic == "" {
+		log.Fatal("TOPIC_CHAT_INVITE is not set")
+	}
+
+	aiAutoReplyTopic := os.Getenv("TOPIC_AI_AUTOREPLY")
+	if aiAutoReplyTopic == "" {
+		log.Fatal("TOPIC_AI_AUTOREPLY is not set")
+	}
+
+	workerCountStr := os.Getenv("AI_AUTO_REPLY_WORKER_COUNT")
+	workerCount := 5 // default
+	if workerCountStr != "" {
+		if c, err := strconv.Atoi(workerCountStr); err == nil && c > 0 {
+			workerCount = c
+		}
 	}
 
 	authAddr := os.Getenv("AUTH_SERVICE_GRPC_ADDR")
@@ -69,9 +89,30 @@ func main() {
 	server := socketio.NewServer(nil)
 	ws.RegisterSocketHandlers(server, authService, chatService, producer, hub)
 
-	listener := ws.NewForwardListener(hub, forwardTopic)
-	listener.Start()
-	defer listener.Stop()
+	forwardListener := ws.NewForwardListener(hub, chatService, forwardTopic)
+	forwardListener.Start()
+	defer forwardListener.Stop()
+
+	inviteListener := ws.NewInviteListener(hub, inviteTopic)
+	inviteListener.Start()
+	defer inviteListener.Stop()
+
+	aiAutoReplyChan := make(chan kafkaadapter.AiAutoReplyPayload, 100)
+	aiAutoReplyConsumer := kafkaadapter.NewAiAutoReplyConsumer(aiAutoReplyTopic)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go aiAutoReplyConsumer.Read(ctx, aiAutoReplyChan)
+	defer aiAutoReplyConsumer.Close()
+
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			for msg := range aiAutoReplyChan {
+				ws.HandleAiAutoReply(msg, chatClient, hub)
+			}
+		}()
+	}
 
 	go server.Serve()
 	defer server.Close()

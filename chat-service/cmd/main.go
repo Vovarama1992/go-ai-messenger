@@ -9,7 +9,6 @@ import (
 	"os"
 
 	chatgrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
-	grpcclient "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
 	chathttp "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/http"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/postgres"
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/kafka"
@@ -41,6 +40,11 @@ func main() {
 	resultTopic := os.Getenv("TOPIC_AI_THREAD_CREATED")
 	adviceTopic := os.Getenv("TOPIC_AI_ADVICE_REQUEST")
 
+	inviteTopic := os.Getenv("TOPIC_CHAT_INVITE")
+	if inviteTopic == "" {
+		log.Fatal("❌ TOPIC_CHAT_INVITE env is not set")
+	}
+
 	if dbURL == "" || bindingTopic == "" || messageGRPCAddr == "" || resultTopic == "" {
 		log.Fatal("❌ One or more required environment variables are not set")
 	}
@@ -66,17 +70,21 @@ func main() {
 
 	// Message gRPC client
 	msgConn, err := grpc.Dial(messageGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	userConn, err := grpc.Dial(userGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("❌ failed to connect to message-service gRPC: %v", err)
 	}
+	userConn, err := grpc.Dial(userGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("❌ failed to connect to user-service gRPC: %v", err)
+	}
 	defer msgConn.Close()
-	msgClient := grpcclient.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
-	userClient := grpcclient.NewGrpcUserClient(userpb.NewUserServiceClient(userConn))
+	defer userConn.Close()
+	msgClient := chatgrpc.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
+	userClient := chatgrpc.NewGrpcUserClient(userpb.NewUserServiceClient(userConn))
 	userService := usecase.NewUserService(userClient)
 
 	// Services
-	chatService := usecase.NewChatService(chatRepo, bindingRepo, chatproducer) // ✅ передаем producer
+	chatService := usecase.NewChatService(bindingproducer, chatRepo, bindingRepo, chatproducer)
 	bindingService := usecase.NewChatBindingService(bindingRepo, bindingproducer, msgClient)
 
 	go consumer.StartConsumingThreadResults(ctx, bindingService.HandleThreadCreated)
@@ -96,7 +104,7 @@ func main() {
 	chathttp.RegisterRoutes(r, chathttp.ChatDeps{
 		ChatService:        chatService,
 		ChatBindingService: bindingService,
-	})
+	}, inviteTopic)
 
 	go func() {
 		log.Printf("🚀 HTTP server started on :%s", chatHTTPPort)

@@ -101,4 +101,23 @@ func RegisterSocketHandlers(
 			})
 		}
 	})
+
+	server.OnEvent("/", "join-room", func(s socketio.Conn, msg map[string]interface{}) {
+
+		user, ok := s.Context().(userCtx)
+		if !ok {
+			s.Emit("error", "unauthorized")
+			return
+		}
+
+		chatIDFloat, ok := msg["chatId"].(float64)
+		if !ok {
+			s.Emit("error", "invalid chatId")
+			return
+		}
+		chatID := int64(chatIDFloat)
+
+		hub.JoinRoom(user.ID, chatID)
+		s.Emit("joined-room", fmt.Sprintf("Subscribed to chat %d", chatID))
+	})
 }

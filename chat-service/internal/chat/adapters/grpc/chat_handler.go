@@ -14,6 +14,8 @@ type ChatHandler struct {
 	userService    *usecase.UserService
 }
 
+var _ chatpb.ChatServiceServer = (*ChatHandler)(nil)
+
 func NewChatHandler(chatService *usecase.ChatService, bindingService *usecase.ChatBindingService, userService *usecase.UserService) *ChatHandler {
 	return &ChatHandler{
 		chatService:    chatService,
@@ -68,5 +70,43 @@ func (h *ChatHandler) GetUserWithChatByThreadID(ctx context.Context, req *chatpb
 		UserId:    binding.UserID,
 		ChatId:    binding.ChatID,
 		UserEmail: user.Email,
+	}, nil
+}
+
+func (h *ChatHandler) GetUsersByChatID(ctx context.Context, req *chatpb.GetUsersByChatIDRequest) (*chatpb.GetUsersByChatIDResponse, error) {
+	userIDs, err := h.chatService.GetParticipants(ctx, req.ChatId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &chatpb.GetUsersByChatIDResponse{
+		UserIds: userIDs,
+	}, nil
+}
+
+func (h *ChatHandler) GetThreadContext(ctx context.Context, req *chatpb.GetThreadContextRequest) (*chatpb.GetThreadContextResponse, error) {
+	// По threadID получаем биндинг
+	binding, err := h.bindingService.FindByThreadID(ctx, req.ThreadId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем юзера с email по userID
+	user, err := h.userService.GetUserByID(ctx, binding.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем участников чата по chatID
+	userIDs, err := h.chatService.GetParticipants(ctx, binding.ChatID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &chatpb.GetThreadContextResponse{
+		SenderUserId:    binding.UserID,
+		SenderUserEmail: user.Email,
+		ChatId:          binding.ChatID,
+		ChatUserIds:     userIDs,
 	}, nil
 }

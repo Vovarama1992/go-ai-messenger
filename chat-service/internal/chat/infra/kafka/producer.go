@@ -89,3 +89,7 @@ func (p *KafkaProducer) PublishAdviceRequest(threadID string) error {
 	}
 	return p.SendAdviceRequest(context.Background(), payload)
 }
+
+func (p *KafkaProducer) SendInvite(ctx context.Context, payload interface{}, topic string) error {
+	return p.Produce(ctx, topic, payload)
+}

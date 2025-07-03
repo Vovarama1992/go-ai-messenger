@@ -8,12 +8,14 @@ import (
 
 type Hub struct {
 	mu      sync.RWMutex
-	sockets map[int64]socketio.Conn // userID → socket.Conn
+	sockets map[int64]socketio.Conn      // userID → socket.Conn
+	rooms   map[int64]map[int64]struct{} // chatID → set of userIDs
 }
 
 func NewHub() *Hub {
 	return &Hub{
 		sockets: make(map[int64]socketio.Conn),
+		rooms:   make(map[int64]map[int64]struct{}),
 	}
 }
 
@@ -27,12 +29,56 @@ func (h *Hub) Unregister(userID int64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.sockets, userID)
+
+	for chatID, users := range h.rooms {
+		delete(users, userID)
+		if len(users) == 0 {
+			delete(h.rooms, chatID)
+		}
+	}
 }
 
-func (h *Hub) Send(userID int64, event string, data any) {
+func (h *Hub) JoinRoom(userID int64, chatID int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if _, ok := h.rooms[chatID]; !ok {
+		h.rooms[chatID] = make(map[int64]struct{})
+	}
+	h.rooms[chatID][userID] = struct{}{}
+}
+
+func (h *Hub) LeaveRoom(userID int64, chatID int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if users, ok := h.rooms[chatID]; ok {
+		delete(users, userID)
+		if len(users) == 0 {
+			delete(h.rooms, chatID)
+		}
+	}
+}
+
+func (h *Hub) SendToRoom(chatID int64, event string, data any) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	if conn, ok := h.sockets[userID]; ok {
-		conn.Emit(event, data)
+
+	users, ok := h.rooms[chatID]
+	if !ok {
+		return
 	}
+
+	for userID := range users {
+		if conn, ok := h.sockets[userID]; ok {
+			conn.Emit(event, data)
+		}
+	}
+}
+
+func (h *Hub) HasConnection(userID int64) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, exists := h.sockets[userID]
+	return exists
 }

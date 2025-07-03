@@ -24,3 +24,9 @@ type Chat struct {
 	Type      ChatType
 	CreatedAt int64
 }
+
+type ChatMember struct {
+	ChatID   int64
+	UserID   int64
+	Accepted bool
+}

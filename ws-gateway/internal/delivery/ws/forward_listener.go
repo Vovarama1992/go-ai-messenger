@@ -2,17 +2,17 @@ package ws
 
 import (
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/infra/kafka"
+	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/ports"
 )
 
 type ForwardListener struct {
 	consumer kafkaadapter.ForwardConsumerInterface
 }
 
-func NewForwardListener(hub *Hub, topic string) *ForwardListener {
+func NewForwardListener(hub *Hub, chatService ports.ChatService, topic string) *ForwardListener {
 	consumer := kafkaadapter.NewForwardConsumer(topic, func(msg kafkaadapter.ForwardMessage) {
-		for userID := range hub.sockets {
-			hub.Send(userID, "message", msg)
-		}
+
+		hub.SendToRoom(msg.ChatID, "message", msg)
 	})
 
 	return &ForwardListener{

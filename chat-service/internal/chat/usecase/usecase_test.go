@@ -37,8 +37,12 @@ func TestCreateChat_Success(t *testing.T) {
 			return nil
 		})
 
+	mockRepo.EXPECT().
+		AddUsersToChat(gomock.Any(), int64(1), []int64{123}).
+		Return(nil)
+
 	chatType := model.ChatTypePrivate
-	chat, err := service.CreateChat(context.Background(), 123, chatType)
+	chat, err := service.CreateChat(context.Background(), 123, chatType, []int64{123})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,7 +56,6 @@ func TestCreateChat_Success(t *testing.T) {
 		t.Fatal("expected chat ID to be set")
 	}
 }
-
 func TestCreateChat_InvalidType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -61,7 +64,7 @@ func TestCreateChat_InvalidType(t *testing.T) {
 
 	invalidType := model.ChatType("invalid")
 
-	_, err := service.CreateChat(context.Background(), 123, invalidType)
+	_, err := service.CreateChat(context.Background(), 123, invalidType, []int64{123})
 	if err == nil {
 		t.Fatal("expected error for invalid chat type, got nil")
 	}

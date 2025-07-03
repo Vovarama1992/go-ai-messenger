@@ -22,6 +22,8 @@ const (
 	ChatService_GetChatByID_FullMethodName               = "/chatpb.ChatService/GetChatByID"
 	ChatService_GetBindingsByChat_FullMethodName         = "/chatpb.ChatService/GetBindingsByChat"
 	ChatService_GetUserWithChatByThreadID_FullMethodName = "/chatpb.ChatService/GetUserWithChatByThreadID"
+	ChatService_GetUsersByChatID_FullMethodName          = "/chatpb.ChatService/GetUsersByChatID"
+	ChatService_GetThreadContext_FullMethodName          = "/chatpb.ChatService/GetThreadContext"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -31,6 +33,8 @@ type ChatServiceClient interface {
 	GetChatByID(ctx context.Context, in *GetChatByIDRequest, opts ...grpc.CallOption) (*GetChatByIDResponse, error)
 	GetBindingsByChat(ctx context.Context, in *GetBindingsByChatRequest, opts ...grpc.CallOption) (*GetBindingsByChatResponse, error)
 	GetUserWithChatByThreadID(ctx context.Context, in *GetUserWithChatByThreadIDRequest, opts ...grpc.CallOption) (*GetUserWithChatByThreadIDResponse, error)
+	GetUsersByChatID(ctx context.Context, in *GetUsersByChatIDRequest, opts ...grpc.CallOption) (*GetUsersByChatIDResponse, error)
+	GetThreadContext(ctx context.Context, in *GetThreadContextRequest, opts ...grpc.CallOption) (*GetThreadContextResponse, error)
 }
 
 type chatServiceClient struct {
@@ -68,6 +72,24 @@ func (c *chatServiceClient) GetUserWithChatByThreadID(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *chatServiceClient) GetUsersByChatID(ctx context.Context, in *GetUsersByChatIDRequest, opts ...grpc.CallOption) (*GetUsersByChatIDResponse, error) {
+	out := new(GetUsersByChatIDResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetUsersByChatID_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetThreadContext(ctx context.Context, in *GetThreadContextRequest, opts ...grpc.CallOption) (*GetThreadContextResponse, error) {
+	out := new(GetThreadContextResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetThreadContext_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility
@@ -75,6 +97,8 @@ type ChatServiceServer interface {
 	GetChatByID(context.Context, *GetChatByIDRequest) (*GetChatByIDResponse, error)
 	GetBindingsByChat(context.Context, *GetBindingsByChatRequest) (*GetBindingsByChatResponse, error)
 	GetUserWithChatByThreadID(context.Context, *GetUserWithChatByThreadIDRequest) (*GetUserWithChatByThreadIDResponse, error)
+	GetUsersByChatID(context.Context, *GetUsersByChatIDRequest) (*GetUsersByChatIDResponse, error)
+	GetThreadContext(context.Context, *GetThreadContextRequest) (*GetThreadContextResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -90,6 +114,12 @@ func (UnimplementedChatServiceServer) GetBindingsByChat(context.Context, *GetBin
 }
 func (UnimplementedChatServiceServer) GetUserWithChatByThreadID(context.Context, *GetUserWithChatByThreadIDRequest) (*GetUserWithChatByThreadIDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserWithChatByThreadID not implemented")
+}
+func (UnimplementedChatServiceServer) GetUsersByChatID(context.Context, *GetUsersByChatIDRequest) (*GetUsersByChatIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsersByChatID not implemented")
+}
+func (UnimplementedChatServiceServer) GetThreadContext(context.Context, *GetThreadContextRequest) (*GetThreadContextResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetThreadContext not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 
@@ -158,6 +188,42 @@ func _ChatService_GetUserWithChatByThreadID_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetUsersByChatID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsersByChatIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetUsersByChatID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetUsersByChatID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetUsersByChatID(ctx, req.(*GetUsersByChatIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetThreadContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetThreadContextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetThreadContext(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetThreadContext_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetThreadContext(ctx, req.(*GetThreadContextRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -176,6 +242,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserWithChatByThreadID",
 			Handler:    _ChatService_GetUserWithChatByThreadID_Handler,
+		},
+		{
+			MethodName: "GetUsersByChatID",
+			Handler:    _ChatService_GetUsersByChatID_Handler,
+		},
+		{
+			MethodName: "GetThreadContext",
+			Handler:    _ChatService_GetThreadContext_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
