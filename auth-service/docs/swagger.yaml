@@ -1,0 +1,10 @@
+basePath: /
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: Сервис для логина и регистрации пользователей
+  title: Auth Service API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

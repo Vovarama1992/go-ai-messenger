@@ -12,20 +12,33 @@ proto:
 		$(PROTO_FILES)
 
 generate-mocks:
-	@find . -type d -name ports | while read portdir; do \
-		svc=$$(dirname $$portdir); \
-		for file in $$portdir/*.go; do \
-			grep -E '^type [A-Za-z0-9_]+ interface' $$file | while read line; do \
-				intf=$$(echo $$line | awk '{print $$2}'); \
-				outdir=$$svc/mocks; \
-				outfile=$$outdir/mock_$${intf}.go; \
-				if [ -f $$outfile ]; then \
-					echo "✅ Mock for $$intf already exists: $$outfile"; \
-				else \
-					mkdir -p $$outdir; \
-					echo "🚧 Generating mock for $$intf into $$outfile"; \
-					mockgen "$$(go list -m)/$$portdir" $$intf > $$outfile; \
-				fi \
+	@for dir in */; do \
+		find "$$dir/internal" -type d -name ports | while read portsdir; do \
+			echo "📦 $$dir -> найдена ports: $$portsdir"; \
+			mocksdir=$$(dirname $$portsdir)/mocks; \
+			mkdir -p "$$mocksdir"; \
+			for src in $$portsdir/*.go; do \
+				filename=$$(basename $$src .go); \
+				mockgen -source=$$src -destination=$$mocksdir/$${filename}_mock.go -package=mocks; \
+				echo "  ✅ мок для $$src → $${filename}_mock.go"; \
 			done; \
 		done; \
+	done
+
+swagger-init:
+	@for dir in */; do \
+		path=$$(find $$dir/internal/**/http -type f -name routes.go 2>/dev/null | head -n 1); \
+		if [ ! -z "$$path" ]; then \
+			echo "📄 Swagger генерируется в $$dir (из $$path)"; \
+			pkg_path=$$(echo $$path | awk -F'/internal/' '{print $$2}' | awk -F'/routes.go' '{print $$1"/http/routes.go"}'); \
+			cd $$dir && swag init --parseDependency --parseInternal -g internal/$$pkg_path && cd ..; \
+		else \
+			echo "⚠️  Не найден routes.go в $$dir//internal/**/http/"; \
+		fi; \
+	done
+	@echo "🧹 Чистим LeftDelim / RightDelim из всех docs.go..."
+	@find . -type f -name docs.go | while read file; do \
+		sed -i '/LeftDelim/d' $$file; \
+		sed -i '/RightDelim/d' $$file; \
+		echo "✅ Пофикшен $$file"; \
 	done

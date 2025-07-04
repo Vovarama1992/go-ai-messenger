@@ -8,17 +8,29 @@ import (
 	"os"
 	"time"
 
-	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/auth/adapters/grpc"
-	httpadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/auth/adapters/http"
-	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/auth/ports"
-	auth "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/auth/usecase"
+	docs "github.com/Vovarama1992/go-ai-messenger/auth-service/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/adapters/grpc"
+	httpadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/adapters/http"
+	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
+	auth "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/usecase"
 	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
 	"github.com/Vovarama1992/go-ai-messenger/proto/userpb"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+	// Swagger метаинфо
+	docs.SwaggerInfo.Title = "Auth Service API"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Description = "Сервис логина и регистрации"
+	docs.SwaggerInfo.BasePath = "/"
+
+	// Конфиги
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET не установлен")
@@ -39,6 +51,7 @@ func main() {
 		grpcPort = "50052"
 	}
 
+	// gRPC к user-service
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -55,19 +68,27 @@ func main() {
 	userGrpc := userpb.NewUserServiceClient(conn)
 	var userClient ports.UserClient = grpcadapter.NewGrpcUserClient(userGrpc)
 
+	// Инициализация сервисов и хендлеров
 	usecase := auth.NewAuthService(userClient, jwtSecret)
-
 	httpHandler := httpadapter.NewHandler(usecase)
-	http.HandleFunc("/login", httpHandler.Login)
-	http.HandleFunc("/register", httpHandler.Register)
 
+	// HTTP маршруты
+	mux := http.NewServeMux()
+	httpadapter.RegisterRoutes(mux, httpHandler)
+	mux.Handle("/docs/", httpSwagger.Handler(
+		httpSwagger.URL("/docs/doc.json"),
+	))
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// Запуск HTTP
 	go func() {
 		log.Printf("Auth HTTP server запущен на :%s\n", httpPort)
-		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
+		if err := http.ListenAndServe(":"+httpPort, mux); err != nil {
 			log.Fatalf("ошибка HTTP-сервера: %v", err)
 		}
 	}()
 
+	// gRPC сервер
 	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatalf("не удалось слушать gRPC порт: %v", err)

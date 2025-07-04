@@ -1,0 +1,14 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Сервис для логина и регистрации пользователей",
+        "title": "Auth Service API",
+        "contact": {
+            "name": "API Support",
+            "email": "support@example.com"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {}
+}
