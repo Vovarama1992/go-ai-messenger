@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	mock "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/mock"
+	mock "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/mocks"
 	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/model"
 )
 
@@ -23,7 +23,7 @@ func TestMessageService_SaveMessage_Success(t *testing.T) {
 	msg := &model.Message{
 		ChatID:      10,
 		SenderID:    42,
-		Text:        "hello world",
+		Content:     "hello world",
 		AIGenerated: true,
 	}
 
@@ -34,7 +34,7 @@ func TestMessageService_SaveMessage_Success(t *testing.T) {
 		DoAndReturn(func(m *model.Message) error {
 			assert.Equal(t, msg.ChatID, m.ChatID)
 			assert.Equal(t, msg.SenderID, m.SenderID)
-			assert.Equal(t, msg.Text, m.Text)
+			assert.Equal(t, msg.Content, m.Content)
 			assert.Equal(t, msg.AIGenerated, m.AIGenerated)
 			assert.WithinDuration(t, time.Now(), m.CreatedAt, time.Second)
 			m.ID = 777
@@ -57,7 +57,7 @@ func TestMessageService_SaveMessage_RepoError(t *testing.T) {
 	msg := &model.Message{
 		ChatID:   1,
 		SenderID: 2,
-		Text:     "fail case",
+		Content:  "fail case",
 	}
 
 	mockRepo.

@@ -1,7 +1,10 @@
+MIGRATIONS_DIR=./migrations
+DOCKER_DB_URL=postgres://postgres:postgres@postgres:5432/go_messenger?sslmode=disable
 PROTO_DIR := proto
 PROTO_FILES := $(shell find $(PROTO_DIR) -name "*.proto")
 GO_OUT := .
 PROTOC := protoc
+SHELL := /bin/bash
 
 .PHONY: proto generate-mocks
 
@@ -27,13 +30,13 @@ generate-mocks:
 
 swagger-init:
 	@for dir in */; do \
-		path=$$(find $$dir/internal/**/http -type f -name routes.go 2>/dev/null | head -n 1); \
+		path=$$(find $$dir -type f -name routes.go | grep '/internal/.*/http/routes.go' | head -n 1); \
 		if [ ! -z "$$path" ]; then \
 			echo "📄 Swagger генерируется в $$dir (из $$path)"; \
-			pkg_path=$$(echo $$path | awk -F'/internal/' '{print $$2}' | awk -F'/routes.go' '{print $$1"/http/routes.go"}'); \
+			pkg_path=$$(echo $$path | sed -E 's|.*/internal/(.*)/http/routes.go|\1/http/routes.go|'); \
 			cd $$dir && swag init --parseDependency --parseInternal -g internal/$$pkg_path && cd ..; \
 		else \
-			echo "⚠️  Не найден routes.go в $$dir//internal/**/http/"; \
+			echo "⚠️  Не найден routes.go в $$dir/internal/**/http/"; \
 		fi; \
 	done
 	@echo "🧹 Чистим LeftDelim / RightDelim из всех docs.go..."
@@ -42,3 +45,27 @@ swagger-init:
 		sed -i '/RightDelim/d' $$file; \
 		echo "✅ Пофикшен $$file"; \
 	done
+
+migrate-up:
+	docker run --rm \
+		--network go-ai-messenger_default \
+		-v $(PWD)/migrations:/migrations \
+		migrate/migrate \
+		-path=/migrations \
+		-database "$(DOCKER_DB_URL)" \
+		up
+
+migrate-down:
+	docker run --rm \
+		--network go-ai-messenger_default \
+		-v $(PWD)/migrations:/migrations \
+		migrate/migrate \
+		-path=/migrations \
+		-database "$(DOCKER_DB_URL)" \
+		down
+
+list-tests:
+	find . -type f -name '*_test.go'
+
+test:
+	go test ./... -cover -v

@@ -1,186 +1,134 @@
-# go-ai-messenger
+ОБЩИЕ ПРАВИЛА
 
-## 🧠 Цель проекта
+📁 Расположение интерфейсов (ports)
 
-Реализовать мессенджер с поддержкой AI-ответов (советы, автореакция) в микросервисной архитектуре, с масштабируемыми WebSocket-шлюзами и Kafka-пайплайном.
-в котором:
-- пользователь может создать чат;
-- чат может быть привязан к AI-сервису (совет или автоответ);
-- AI-сервис знает, какой чат к какому пользователю относится;
-- AI-сервис отвечает либо советом, либо автоматически вместо пользователя.
+Все зависимости между слоями (gRPC-клиенты, Kafka-паблишеры и пр.) описываются через интерфейсы и располагаются в:
 
----
+internal/**/ports/ Это требует команда make generate-mocks
 
-⚙️ Стек технологий
+Интерфейсы используются в usecase-слое, конкретные реализации — в adapters.
 
-Go 1.22
+🌐 HTTP-роуты и Swagger
 
-gRPC
+Все HTTP-роуты описываются в функции RegisterRoutes, например:
 
-Kafka (Confluent)
+func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
+    // @Summary Логин
+    // @Description Аутентификация пользователя и выдача JWT
+    // ...
+    mux.HandleFunc("/login", handler.Login)
+}
 
-PostgreSQL
+Файл с роутами должен называться routes.go и располагаться в одной из папок:
 
-WebSocket (socket.io-style)
+internal/**/http
 
-Docker Compose (dev) / Kubernetes (prod)
+Swagger-аннотации размещаются над mux.HandleFunc(...) в этом файле. Это требует команда make swagger-init
 
-Swagger (через HTTP шлюзы)
+ДОКУМЕНТАЦИЯ ПО МИКРОСЕРВИСАМ
 
-Prometheus + Grafana (мониторинг и логирование)
+1. auth-service
 
-⚙️ Продакшн и масштабирование
+📱 HTTP API (наружу)
 
-Stateless-сервисы: легко реплицируются
+POST /login — аутентификация пользователя
 
-Kafka — для async обмена сообщениями и AI
+POST /register — регистрация нового пользователя
 
-gRPC — для sync-взаимодействия сервисов
 
-WebSocket-шлюз (ws-gateway) — масштабируется с sticky session или Redis pub/sub
+🔌 gRPC API (внутрь системы)
 
-Docker Compose — для локальной разработки
+rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
 
-Kubernetes — целевая среда
+📁 Определение: authpb/auth.proto🔹 Сервер регистрируется в auth-service
 
-CI/мейк: make test, make lint, make run, make migrate
+🔗 Зависимости
 
-Swagger подключается ко всем HTTP-сервисам
+auth-service по gRPC обращается к user-service:
 
-Прометей + Графана: Сбор метрик и наблюдаемость
+CreateUser(email, passwordHash) → userID
 
----
-
-## 🧱 Микросервисы (gRPC, Kafka, PostgreSQL)
-
-| Сервис          | Ответственность                    | gRPC-клиенты               | Kafka                            |
-| --------------- | ---------------------------------- | -------------------------- | -------------------------------- |
-| auth-service    | JWT-аутентификация, login/register | user-service               | ❌                                |
-| user-service    | Хранение пользователей             | —                          | ❌                                |
-| chat-service    | Чаты, AI-привязка                  | auth-service, user-service | ❌                                |
-| message-service | Сохранение сообщений               | chat-service (optional)    | ✅ consume `chat.message.persist` `chat.message.ai-autoreply` |
-
-### WebSocket
-
-| Сервис       | Kafka topics                              | Примечание                                                           |
-| ------------ | ----------------------------------------- | -------------------------------------------------------------------- |
-| ws-gateway   | produce: persist, forward consume: forward | Один сервис, масштабируется (replicas) + sticky session/Redis pubsub |
-| ws-ai-advice | consume: ai-advice                        | Пуш ответа AI-совета в `user:{id}`                                   |
-| ws-autoreply | consume: forward                          | Фильтр AI-автоответов                   |
-
-### AI Service
-
-| Задача                           | Kafka topics                                                                |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| AI-обработка (советы/автоответы) | consume: ai.advice-request, ai.autoreply-request  produce: ai-advice, forward |
-
----
-
-## 🔄 Kafka Topics
-
-| Топик                             | Producer               | Consumer                 |
-| --------------------------------- | ---------------------- | ------------------------ |
-| chat.message.persist              | ws-gateway             | message-service          |
-| chat.message.forward              | ws-gateway, ai-service | ws-gateway, ws-autoreply |
-| chat.message.ai-advice            | ai-service             | ws-ai-advice             |
-| chat.message.ai.advice-request    | ws-gateway             | ai-service               |
-| chat.message.ai.autoreply-request | ws-gateway             | ai-service               |
-
----
-
-## 📅 .env.example
-
-```env
-# Postgres
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=go_messenger
-POSTGRES_PORT=5432
-POSTGRES_HOST=postgres
-DATABASE_URL=postgres://postgres:postgres@postgres:5432/go_messenger?sslmode=disable
-
-# gRPC ports
-USER_GRPC_PORT=50051
-AUTH_HTTP_PORT=8080
-AUTH_GRPC_PORT=50052
-CHAT_HTTP_PORT=8081
-CHAT_GRPC_PORT=50053
-
-# Kafka
-KAFKA_BROKER=kafka:9092
-
-# Worker scaling
-CHAT_MESSAGE_PERSIST_WORKER_COUNT=4
-```
-
----
-
-## 📚 Структура репозитория
-
-```
-go-ai-messenger/
-├── ai-service/
-├── auth-service/
-├── chat-service/
-├── message-service/
-│   ├── cmd/
-│   └── internal/
-│       ├── delivery/kafka/
-│       ├── usecase/
-│       ├── infra/{kafka,postgres}
-│       ├── ports/
-│       └── model/
-├── user-service/
-├── ws-gateway/              # (в планах)
-├── ws-ai-advice/            # (в планах)
-├── ws-autoreply/            # (в планах)
-├── proto/
-├── docker-compose.yml
-├── .env.example
-├── go.mod
-├── MANIFEST.md
-└── README.md
-```
-
----
-
-## 📊 Уже готово
-
-| Сервис          | Юнит-тесты           | Интеграционные | Комментарий                           |
-| --------------- | -------------------- | -------------- | ------------------------------------- |
-| auth-service    | ✅ с моком userClient | в планах       |                                       |
-| user-service    | ✅ с мок repo         | в планах       |                                       |
-| chat-service    | в разработке         | —              |                                       |
-| message-service | пока нет             | пока нет       | запланирован Kafka consumer + persist |
-| ai-service      | ✅ покрыт             | пока нет       | Все pipeline'ы готовы (binding, feed, advice), пушит в Kafka топики для WebSocket |
-
----
-
-## ⚙️ Продакшн и масштабирование
-
-- Stateless-сервисы: легко реплицируются
-- Kafka — для async обмена сообщениями и AI
-- gRPC — для sync-взаимодействия сервисов
-- WebSocket-шлюз (`ws-gateway`) — масштабируется с sticky session или Redis pub/sub
-- Docker Compose — для локальной разработки
-- Kubernetes — целевая среда
-- CI/мейк: `make test`, `make lint`, `make run`, `make migrate`
+GetByEmail(email) → userID, passwordHash
 
 
 
-🛠 **TODO**
+2. user-service
 
-### MVP / Infrastructure
-- [ ] Подписка **message-service** на топик автоответов (`TOPIC_AI_AUTOREPLY`) → сохранять их в БД
-- [ ] Обернуть всё в Swagger
-- [ ] Написать миграции
-- [ ] Написать Makefile с командами `make run`, `make lint`, `make migrate`
-- [ ] Добавить retry и отказоустойчивость при работе с Kafka (producer и consumer)
+🔌 gRPC API
 
-### AI Enhancements (Nice to have)
-- [ ] Поддержка кастомных промптов на уровне привязки (user → chat)
-- [ ] GPT возвращает JSON с полем `kafkaTopic`, система сама решает, публиковать ли ответ, и куда
-- [ ] Расширенные режимы binding’ов:
-  - `autoreply:delay`, `autoreply:mention-sensitive`, `autoreply:smart`
-  - Пример: *отвечай, если упоминают пользователя + есть токсичность*
-- [ ] Поддержка логики “просто пополняем историю”, если тип binding-а не предполагает ответов
+user-service предоставляет gRPC-интерфейс:
+
+GetUserByEmail(email) → userID, passwordHash
+
+CreateUser(email, passwordHash) → userID
+
+3. chat-service
+📱 HTTP API (наружу)
+
+Все эндпоинты описаны через Swagger-аннотации в internal/**/http/routes.go.
+
+Сгенерированная документация используется фронтом и внешними клиентами.
+
+📌 Для генерации: make swagger-init
+
+🔌 gRPC API
+
+Интерфейс chatpb.ChatService предоставляет:
+
+GetChatByID(chat_id) → Chat
+
+GetBindingsByChat(chat_id) → List<Binding>
+
+GetUserWithChatByThreadID(thread_id) → {userID, chatID, email}
+
+GetUsersByChatID(chat_id) → List<userID>
+
+GetThreadContext(thread_id) → {senderID, senderEmail, chatID, participants}
+
+📁 Определение: proto/chatpb/chat.proto
+🔹 Реализация сервера: internal/chat/adapters/grpc
+
+🔗 Зависимости
+
+gRPC-запрос к user-service: GetUserByID(userID)
+gRPC-запрос к message-service: GetMessagesByChat(chatID)
+
+Kafka-события:
+
+TOPIC_AI_ADVICE_REQUEST — отправка запроса в AI
+
+TOPIC_CHAT_INVITE — отправка инвайтов в вебсокет
+
+gRPC-вызовы из ws-ai-advice:
+
+получение участника по threadID
+
+получение контекста чата по threadID
+
+4. message-service
+📡 Kafka Listener (внутрь)
+Читает сообщения из Kafka-топика:
+
+TOPIC_MESSAGE_PERSIST — сохранение входящих сообщений в БД
+
+💬 gRPC API (наружу)
+
+GetMessagesByChat(chatID) → List<Message>
+Возвращает историю сообщений по указанному чату
+
+🤖 Обработка AI-сообщений
+
+Если сообщение приходит только с ThreadID, без ChatID и SenderID,
+то оно считается сгенерированным AI. В этом случае:
+
+SenderID и ChatID подставляются через GetUserWithChatByThreadID(threadID)
+
+AIGenerated = true
+
+🔗 Зависимости
+
+gRPC-запросы к:
+
+chat-service: GetUserWithChatByThreadID(threadID)
+
+user-service: GetUserByID(userID)

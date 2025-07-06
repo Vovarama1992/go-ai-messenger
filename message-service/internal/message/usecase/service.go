@@ -49,7 +49,7 @@ func (s *MessageService) GetMessagesByChat(ctx context.Context, chatID int64) ([
 		pbMessages = append(pbMessages, &messagepb.ChatMessage{
 			SenderId:    m.SenderID,
 			SenderEmail: email,
-			Text:        m.Text,
+			Content:     m.Content,
 			SentAt:      m.CreatedAt.Unix(),
 		})
 	}

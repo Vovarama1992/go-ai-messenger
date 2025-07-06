@@ -11,8 +11,8 @@ import (
 type contextKey string
 
 const (
-	userIDKey contextKey = "userID"
-	emailKey  contextKey = "email"
+	UserIDKey contextKey = "userID"
+	EmailKey  contextKey = "email"
 )
 
 type AuthMiddleware struct {
@@ -38,8 +38,8 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), userIDKey, resp.UserId)
-		ctx = context.WithValue(ctx, emailKey, resp.Email)
+		ctx := context.WithValue(r.Context(), UserIDKey, resp.UserId)
+		ctx = context.WithValue(ctx, EmailKey, resp.Email)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -47,12 +47,12 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 
 // Извлечение userID из контекста в handler
 func GetUserID(ctx context.Context) (int64, bool) {
-	userID, ok := ctx.Value(userIDKey).(int64)
+	userID, ok := ctx.Value(UserIDKey).(int64)
 	return userID, ok
 }
 
 // Извлечение email из контекста в handler
 func GetUserEmail(ctx context.Context) (string, bool) {
-	email, ok := ctx.Value(emailKey).(string)
+	email, ok := ctx.Value(EmailKey).(string)
 	return email, ok
 }

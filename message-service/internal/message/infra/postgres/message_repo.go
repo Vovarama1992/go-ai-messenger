@@ -25,7 +25,7 @@ func (r *MessageRepo) Save(msg *model.Message) error {
 		query,
 		msg.ChatID,
 		msg.SenderID,
-		msg.Text,
+		msg.Content,
 		msg.AIGenerated,
 		time.Now(),
 	).Scan(&msg.ID)
@@ -55,7 +55,7 @@ func (r *MessageRepo) GetByChat(chatID int64, limit, offset int) ([]model.Messag
 			&msg.ID,
 			&msg.ChatID,
 			&msg.SenderID,
-			&msg.Text,
+			&msg.Content,
 			&msg.AIGenerated,
 			&msg.CreatedAt,
 		)

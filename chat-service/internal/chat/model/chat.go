@@ -21,7 +21,7 @@ func (t ChatType) IsValid() error {
 type Chat struct {
 	ID        int64
 	CreatorID int64
-	Type      ChatType
+	ChatType  ChatType
 	CreatedAt int64
 }
 

@@ -20,8 +20,10 @@ import (
 	messagepb "github.com/Vovarama1992/go-ai-messenger/proto/messagepb"
 	userpb "github.com/Vovarama1992/go-ai-messenger/proto/userpb"
 
+	_ "github.com/Vovarama1992/go-ai-messenger/chat-service/docs"
 	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -105,6 +107,8 @@ func main() {
 		ChatService:        chatService,
 		ChatBindingService: bindingService,
 	}, inviteTopic)
+
+	r.Get("/swagger/*", httpSwagger.Handler())
 
 	go func() {
 		log.Printf("🚀 HTTP server started on :%s", chatHTTPPort)

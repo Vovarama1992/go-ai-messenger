@@ -19,7 +19,7 @@ func NewChatRepo(db *sql.DB) *ChatRepo {
 
 func (r *ChatRepo) Create(ctx context.Context, chat *model.Chat, memberIDs []int64) error {
 	query := `INSERT INTO chats (creator_id, type, created_at) VALUES ($1, $2, $3) RETURNING id`
-	err := r.db.QueryRowContext(ctx, query, chat.CreatorID, chat.Type, chat.CreatedAt).Scan(&chat.ID)
+	err := r.db.QueryRowContext(ctx, query, chat.CreatorID, chat.ChatType, chat.CreatedAt).Scan(&chat.ID)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (r *ChatRepo) FindByID(ctx context.Context, id int64) (*model.Chat, error) 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&chat.ID,
 		&chat.CreatorID,
-		&chat.Type,
+		&chat.ChatType,
 		&chat.CreatedAt,
 	)
 	if err != nil {
@@ -132,7 +132,7 @@ func (r *ChatRepo) GetPendingInvites(ctx context.Context, userID int64) ([]model
 	var chats []model.Chat
 	for rows.Next() {
 		var c model.Chat
-		if err := rows.Scan(&c.ID, &c.CreatorID, &c.Type, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.CreatorID, &c.ChatType, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		chats = append(chats, c)

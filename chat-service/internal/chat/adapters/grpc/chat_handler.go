@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 
+	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	"github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 )
@@ -15,6 +16,28 @@ type ChatHandler struct {
 }
 
 var _ chatpb.ChatServiceServer = (*ChatHandler)(nil)
+
+func toProtoChatType(t model.ChatType) chatpb.ChatType {
+	switch t {
+	case model.ChatTypePrivate:
+		return chatpb.ChatType_PRIVATE
+	case model.ChatTypeGroup:
+		return chatpb.ChatType_GROUP
+	default:
+		return chatpb.ChatType_CHAT_TYPE_UNSPECIFIED
+	}
+}
+
+func toProtoBindingType(t model.AIBindingType) chatpb.BindingType {
+	switch t {
+	case model.AIBindingAdvice:
+		return chatpb.BindingType_ADVICE
+	case model.AIBindingAutoreply:
+		return chatpb.BindingType_AUTOREPLY
+	default:
+		return chatpb.BindingType_BINDING_TYPE_UNSPECIFIED
+	}
+}
 
 func NewChatHandler(chatService *usecase.ChatService, bindingService *usecase.ChatBindingService, userService *usecase.UserService) *ChatHandler {
 	return &ChatHandler{
@@ -33,7 +56,7 @@ func (h *ChatHandler) GetChatByID(ctx context.Context, req *chatpb.GetChatByIDRe
 	return &chatpb.GetChatByIDResponse{
 		Id:        chat.ID,
 		CreatorId: chat.CreatorID,
-		Type:      string(chat.Type),
+		ChatType:  toProtoChatType(chat.ChatType),
 		CreatedAt: chat.CreatedAt,
 	}, nil
 }
@@ -47,8 +70,8 @@ func (h *ChatHandler) GetBindingsByChat(ctx context.Context, req *chatpb.GetBind
 	var resp chatpb.GetBindingsByChatResponse
 	for _, b := range bindings {
 		resp.Bindings = append(resp.Bindings, &chatpb.ChatBinding{
-			UserId: b.UserID,
-			Type:   string(b.Type),
+			UserId:      b.UserID,
+			BindingType: toProtoBindingType(b.BindingType),
 		})
 	}
 

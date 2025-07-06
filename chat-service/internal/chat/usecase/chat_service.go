@@ -49,7 +49,7 @@ func (s *ChatService) CreateChat(ctx context.Context, creatorID int64, chatType 
 
 	chat := &model.Chat{
 		CreatorID: creatorID,
-		Type:      chatType,
+		ChatType:  chatType,
 		CreatedAt: time.Now().Unix(),
 	}
 
@@ -70,7 +70,7 @@ func (s *ChatService) RequestAdvice(ctx context.Context, userID int64, chatID in
 	if err != nil {
 		return err
 	}
-	if binding.Type != model.AIBindingAdvice {
+	if binding.BindingType != model.AIBindingAdvice {
 		return fmt.Errorf("binding is not of type 'advice'")
 	}
 

@@ -1,4 +1,4 @@
-package kafka
+package streams
 
 import "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/dto"
 

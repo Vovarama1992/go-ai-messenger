@@ -10,7 +10,7 @@ message GetMessagesRequest {
 
 message ChatMessage {
   int64 senderId = 1;
-  string text = 2;
+  string content = 2;
   int64 sentAt = 3;
   string senderEmail = 4; // ← вот это добавляем
 }

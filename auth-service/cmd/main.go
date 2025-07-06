@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	docs "github.com/Vovarama1992/go-ai-messenger/auth-service/docs"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/adapters/grpc"
@@ -24,11 +23,6 @@ import (
 )
 
 func main() {
-	// Swagger метаинфо
-	docs.SwaggerInfo.Title = "Auth Service API"
-	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.Description = "Сервис логина и регистрации"
-	docs.SwaggerInfo.BasePath = "/"
 
 	// Конфиги
 	jwtSecret := os.Getenv("JWT_SECRET")

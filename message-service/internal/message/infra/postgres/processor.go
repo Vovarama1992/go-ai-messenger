@@ -22,13 +22,16 @@ func NewDefaultMessageProcessor(service *usecase.MessageService, chat ports.Chat
 	}
 }
 func (p *DefaultMessageProcessor) Handle(ctx context.Context, msg dto.IncomingMessage) error {
-	// Обогащение, если не хватает данных
+	// Если не переданы ни ChatID, ни SenderID, но есть ThreadID —
+	// это AI-сообщение, и автором считается пользователь, создавший биндинг.
 	if msg.SenderID == 0 && msg.ChatID == 0 && msg.ThreadID != "" {
 		info, err := p.chatService.GetThreadInfo(ctx, msg.ThreadID)
 		if err != nil {
 			log.Printf("❌ Failed to fetch thread info: %v", err)
 			return err
 		}
+
+		// Подставляем ChatID и SenderID из биндинга (инициатор привязки AI)
 		msg.SenderID = info.UserID
 		msg.ChatID = info.ChatID
 		msg.AIGenerated = true
@@ -37,7 +40,7 @@ func (p *DefaultMessageProcessor) Handle(ctx context.Context, msg dto.IncomingMe
 	message := &model.Message{
 		ChatID:      msg.ChatID,
 		SenderID:    msg.SenderID,
-		Text:        msg.Text,
+		Content:     msg.Text,
 		AIGenerated: msg.AIGenerated,
 	}
 

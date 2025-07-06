@@ -13,11 +13,11 @@ import (
 
 	messagegrpc "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/delivery/grpc"
 	deliveryKafka "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/delivery/kafka"
-	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/dto"
 	chatadapter "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/chatgrpc"
 	infraKafka "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/kafka"
 	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/postgres"
 	useradapter "github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/infra/usergrpc"
+	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/streams"
 	"github.com/Vovarama1992/go-ai-messenger/message-service/internal/message/usecase"
 	chatpb "github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 	messagepb "github.com/Vovarama1992/go-ai-messenger/proto/messagepb"
@@ -31,6 +31,8 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	topicPersist := os.Getenv("TOPIC_MESSAGE_PERSIST")
+
+	msgChan := streams.MessageChan
 
 	consumerCount, err := strconv.Atoi(os.Getenv("TOPIC_MESSAGE_PERSIST_CONSUMER_COUNT"))
 	if err != nil || consumerCount <= 0 {
@@ -55,13 +57,13 @@ func main() {
 	if userServiceAddr == "" {
 		userServiceAddr = "localhost:50052"
 	}
-	userConn, err := grpc.Dial(userServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(userServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to user-service: %v", err)
 	}
-	defer userConn.Close()
+	defer conn.Close()
 
-	userGRPC := userpb.NewUserServiceClient(userConn)
+	userGRPC := userpb.NewUserServiceClient(conn)
 	userClient := useradapter.NewUserClient(userGRPC)
 
 	chatServiceAddr := os.Getenv("CHAT_GRPC_ADDR")
@@ -89,11 +91,9 @@ func main() {
 		}
 	}
 
-	msgChan := make(chan dto.IncomingMessage, 100)
-
 	for i := 0; i < consumerCount; i++ {
 		reader := infraKafka.NewKafkaReader(topicPersist, "message-group")
-		infraKafka.StartKafkaConsumer(ctx, reader, msgChan)
+		deliveryKafka.StartKafkaConsumer(ctx, reader, msgChan)
 	}
 
 	deliveryKafka.StartMessageWorkers(ctx, wg, processor, msgChan, workerCount)

@@ -25,10 +25,10 @@ func (s *ChatBindingService) UpdateBinding(ctx context.Context, userEmail string
 	}
 
 	binding := &model.ChatBinding{
-		UserID:    userID,
-		ChatID:    chatID,
-		Type:      newType,
-		CreatedAt: time.Now().Unix(),
+		UserID:      userID,
+		ChatID:      chatID,
+		BindingType: newType,
+		CreatedAt:   time.Now().Unix(),
 	}
 
 	_, err := s.repo.FindByUserAndChat(ctx, userID, chatID)
@@ -48,17 +48,17 @@ func (s *ChatBindingService) UpdateBinding(ctx context.Context, userEmail string
 		for i, m := range messagesPb {
 			messages[i] = model.ChatMessage{
 				SenderEmail: m.SenderEmail,
-				Text:        m.Text,
+				Text:        m.Content,
 				SentAt:      m.SentAt,
 			}
 		}
 
 		payload := model.AiBindingInitPayload{
-			ChatID:    chatID,
-			UserID:    userID,
-			Type:      string(newType),
-			UserEmail: userEmail,
-			Messages:  messages,
+			ChatID:      chatID,
+			UserID:      userID,
+			BindingType: string(newType),
+			UserEmail:   userEmail,
+			Messages:    messages,
 		}
 
 		go s.broker.SendAiBindingInit(context.Background(), payload)

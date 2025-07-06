@@ -19,19 +19,19 @@ func (a AIBindingType) IsValid() error {
 }
 
 type ChatBinding struct {
-	ChatID    int64
-	ThreadID  string
-	UserID    int64
-	Type      AIBindingType
-	CreatedAt int64
+	ChatID      int64
+	ThreadID    string
+	UserID      int64
+	BindingType AIBindingType
+	CreatedAt   int64
 }
 
 type AiBindingInitPayload struct {
-	ChatID    int64         `json:"chatId"`
-	UserID    int64         `json:"userId"`
-	Type      string        `json:"type"` // "advice" или "autoreply"
-	UserEmail string        `json:"senderEmail"`
-	Messages  []ChatMessage `json:"messages"`
+	ChatID      int64         `json:"chatId"`
+	UserID      int64         `json:"userId"`
+	BindingType string        `json:"type"` // "advice" или "autoreply"
+	UserEmail   string        `json:"senderEmail"`
+	Messages    []ChatMessage `json:"messages"`
 }
 
 type ChatMessage struct {

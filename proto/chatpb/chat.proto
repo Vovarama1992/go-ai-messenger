@@ -9,7 +9,19 @@ service ChatService {
   rpc GetBindingsByChat (GetBindingsByChatRequest) returns (GetBindingsByChatResponse);
   rpc GetUserWithChatByThreadID (GetUserWithChatByThreadIDRequest) returns (GetUserWithChatByThreadIDResponse);
   rpc GetUsersByChatID (GetUsersByChatIDRequest) returns (GetUsersByChatIDResponse);
-  rpc GetThreadContext(GetThreadContextRequest) returns (GetThreadContextResponse);
+  rpc GetThreadContext (GetThreadContextRequest) returns (GetThreadContextResponse);
+}
+
+enum ChatType {
+  CHAT_TYPE_UNSPECIFIED = 0;
+  PRIVATE = 1;
+  GROUP = 2;
+}
+
+enum BindingType {
+  BINDING_TYPE_UNSPECIFIED = 0;
+  ADVICE = 1;
+  AUTOREPLY = 2;
 }
 
 message GetChatByIDRequest {
@@ -19,7 +31,7 @@ message GetChatByIDRequest {
 message GetChatByIDResponse {
   int64 id = 1;
   int64 creator_id = 2;
-  string type = 3;
+  ChatType chat_type = 3;
   int64 created_at = 4;
 }
 
@@ -29,7 +41,7 @@ message GetBindingsByChatRequest {
 
 message ChatBinding {
   int64 user_id = 1;
-  string type = 2; // "advice" | "autoreply"
+  BindingType binding_type = 2;
 }
 
 message GetUsersByChatIDRequest {
