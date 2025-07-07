@@ -26,8 +26,8 @@ func (a *ChatServiceAdapter) GetBindingsByChat(ctx context.Context, chatID int64
 	var bindings []ports.ChatBinding
 	for _, b := range resp.Bindings {
 		bindings = append(bindings, ports.ChatBinding{
-			UserID: b.UserId,
-			Type:   b.Type,
+			UserID:      b.UserId,
+			BindingType: b.BindingType.String(),
 		})
 	}
 

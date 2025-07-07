@@ -6,12 +6,13 @@ import (
 
 	"github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/infra/kafka"
+	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/ports"
 )
 
 func HandleAiAutoReply(
 	msg kafkaadapter.AiAutoReplyPayload,
 	chatClient chatpb.ChatServiceClient,
-	hub *Hub,
+	hub ports.Hub,
 ) {
 	resp, err := chatClient.GetUserWithChatByThreadID(context.Background(), &chatpb.GetUserWithChatByThreadIDRequest{
 		ThreadId: msg.ThreadID,

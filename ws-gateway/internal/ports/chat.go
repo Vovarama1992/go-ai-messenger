@@ -8,8 +8,8 @@ type ChatService interface {
 }
 
 type ChatBinding struct {
-	UserID   int64
-	ChatID   int64
-	ThreadID *int64
-	Type     string // "advice" | "autoreply"
+	UserID      int64
+	ChatID      int64
+	ThreadID    string
+	BindingType string // "advice" | "autoreply"
 }

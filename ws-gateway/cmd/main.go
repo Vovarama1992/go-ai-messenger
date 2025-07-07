@@ -14,8 +14,8 @@ import (
 	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
 	chatpb "github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
 
+	grpcadapter "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/adapters/grpc"
 	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/delivery/ws"
-	grpcadapter "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/infra/grpc"
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/infra/kafka"
 )
 

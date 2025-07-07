@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	ports "github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/ports"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,28 +40,90 @@ func (m *MockHub) EXPECT() *MockHubMockRecorder {
 	return m.recorder
 }
 
-// Send mocks base method.
-func (m *MockHub) Send(userID int64, event string, data any) {
+// GetConn mocks base method.
+func (m *MockHub) GetConn(userID int64) ports.Conn {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Send", userID, event, data)
-}
-
-// Send indicates an expected call of Send.
-func (mr *MockHubMockRecorder) Send(userID, event, data any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockHub)(nil).Send), userID, event, data)
-}
-
-// Sockets mocks base method.
-func (m *MockHub) Sockets() map[int64]struct{} {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sockets")
-	ret0, _ := ret[0].(map[int64]struct{})
+	ret := m.ctrl.Call(m, "GetConn", userID)
+	ret0, _ := ret[0].(ports.Conn)
 	return ret0
 }
 
-// Sockets indicates an expected call of Sockets.
-func (mr *MockHubMockRecorder) Sockets() *gomock.Call {
+// GetConn indicates an expected call of GetConn.
+func (mr *MockHubMockRecorder) GetConn(userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sockets", reflect.TypeOf((*MockHub)(nil).Sockets))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConn", reflect.TypeOf((*MockHub)(nil).GetConn), userID)
+}
+
+// HasConnection mocks base method.
+func (m *MockHub) HasConnection(userID int64) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasConnection", userID)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasConnection indicates an expected call of HasConnection.
+func (mr *MockHubMockRecorder) HasConnection(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasConnection", reflect.TypeOf((*MockHub)(nil).HasConnection), userID)
+}
+
+// JoinRoom mocks base method.
+func (m *MockHub) JoinRoom(userID, chatID int64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "JoinRoom", userID, chatID)
+}
+
+// JoinRoom indicates an expected call of JoinRoom.
+func (mr *MockHubMockRecorder) JoinRoom(userID, chatID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JoinRoom", reflect.TypeOf((*MockHub)(nil).JoinRoom), userID, chatID)
+}
+
+// LeaveRoom mocks base method.
+func (m *MockHub) LeaveRoom(userID, chatID int64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "LeaveRoom", userID, chatID)
+}
+
+// LeaveRoom indicates an expected call of LeaveRoom.
+func (mr *MockHubMockRecorder) LeaveRoom(userID, chatID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveRoom", reflect.TypeOf((*MockHub)(nil).LeaveRoom), userID, chatID)
+}
+
+// Register mocks base method.
+func (m *MockHub) Register(userID int64, conn ports.Conn) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Register", userID, conn)
+}
+
+// Register indicates an expected call of Register.
+func (mr *MockHubMockRecorder) Register(userID, conn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockHub)(nil).Register), userID, conn)
+}
+
+// SendToRoom mocks base method.
+func (m *MockHub) SendToRoom(chatID int64, event string, data any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SendToRoom", chatID, event, data)
+}
+
+// SendToRoom indicates an expected call of SendToRoom.
+func (mr *MockHubMockRecorder) SendToRoom(chatID, event, data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToRoom", reflect.TypeOf((*MockHub)(nil).SendToRoom), chatID, event, data)
+}
+
+// Unregister mocks base method.
+func (m *MockHub) Unregister(userID int64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Unregister", userID)
+}
+
+// Unregister indicates an expected call of Unregister.
+func (mr *MockHubMockRecorder) Unregister(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unregister", reflect.TypeOf((*MockHub)(nil).Unregister), userID)
 }

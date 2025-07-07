@@ -72,6 +72,8 @@ func (h *ChatHandler) GetBindingsByChat(ctx context.Context, req *chatpb.GetBind
 		resp.Bindings = append(resp.Bindings, &chatpb.ChatBinding{
 			UserId:      b.UserID,
 			BindingType: toProtoBindingType(b.BindingType),
+			ThreadId:    b.ThreadID,
+			ChatId:      req.ChatId,
 		})
 	}
 

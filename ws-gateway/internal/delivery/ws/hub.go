@@ -3,23 +3,23 @@ package ws
 import (
 	"sync"
 
-	socketio "github.com/googollee/go-socket.io"
+	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/ports"
 )
 
 type Hub struct {
 	mu      sync.RWMutex
-	sockets map[int64]socketio.Conn      // userID → socket.Conn
+	sockets map[int64]ports.Conn         // userID → socket.Conn
 	rooms   map[int64]map[int64]struct{} // chatID → set of userIDs
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		sockets: make(map[int64]socketio.Conn),
+		sockets: make(map[int64]ports.Conn),
 		rooms:   make(map[int64]map[int64]struct{}),
 	}
 }
 
-func (h *Hub) Register(userID int64, conn socketio.Conn) {
+func (h *Hub) Register(userID int64, conn ports.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.sockets[userID] = conn
@@ -81,4 +81,11 @@ func (h *Hub) HasConnection(userID int64) bool {
 	defer h.mu.RUnlock()
 	_, exists := h.sockets[userID]
 	return exists
+}
+
+func (h *Hub) GetConn(userID int64) ports.Conn {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	conn, _ := h.sockets[userID]
+	return conn
 }

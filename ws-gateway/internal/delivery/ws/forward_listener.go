@@ -7,17 +7,16 @@ import (
 
 type ForwardListener struct {
 	consumer kafkaadapter.ForwardConsumerInterface
+	hub      ports.Hub
 }
 
-func NewForwardListener(hub *Hub, chatService ports.ChatService, topic string) *ForwardListener {
-	consumer := kafkaadapter.NewForwardConsumer(topic, func(msg kafkaadapter.ForwardMessage) {
-
-		hub.SendToRoom(msg.ChatID, "message", msg)
-	})
-
-	return &ForwardListener{
-		consumer: consumer,
+func NewForwardListener(hub ports.Hub, chatService ports.ChatService, topic string) *ForwardListener {
+	fl := &ForwardListener{
+		hub: hub,
 	}
+	consumer := kafkaadapter.NewForwardConsumer(topic, fl.HandleMessage)
+	fl.consumer = consumer
+	return fl
 }
 
 func NewForwardListenerWithConsumer(consumer kafkaadapter.ForwardConsumerInterface) *ForwardListener {
@@ -32,4 +31,8 @@ func (fl *ForwardListener) Start() {
 
 func (fl *ForwardListener) Stop() {
 	fl.consumer.Stop()
+}
+
+func (fl *ForwardListener) HandleMessage(msg kafkaadapter.ForwardMessage) {
+	fl.hub.SendToRoom(msg.ChatID, "message", msg)
 }

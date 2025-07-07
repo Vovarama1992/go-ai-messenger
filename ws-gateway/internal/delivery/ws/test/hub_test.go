@@ -3,11 +3,10 @@ package ws_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/delivery/ws"
 	"github.com/Vovarama1992/go-ai-messenger/ws-gateway/internal/mocks"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestHub_RegisterAndSend(t *testing.T) {
@@ -15,16 +14,17 @@ func TestHub_RegisterAndSend(t *testing.T) {
 	defer ctrl.Finish()
 
 	h := ws.NewHub()
-	mockConn := mocks.NewMockConn(ctrl)
+	conn := mocks.NewMockConn(ctrl)
 
-	mockConn.EXPECT().
-		Emit("test_event", "payload").
+	conn.EXPECT().
+		Emit("some_event", "data").
 		Times(1)
 
-	h.Register(1, mockConn)
-	h.Send(1, "test_event", "payload")
+	h.Register(1, conn)
+	h.SendToRoom(123, "some_event", "data") // нет в комнате → ничего
 
-	require.True(t, true)
+	h.JoinRoom(1, 123)
+	h.SendToRoom(123, "some_event", "data")
 }
 
 func TestHub_Unregister(t *testing.T) {
@@ -32,15 +32,48 @@ func TestHub_Unregister(t *testing.T) {
 	defer ctrl.Finish()
 
 	h := ws.NewHub()
-	mockConn := mocks.NewMockConn(ctrl)
+	conn := mocks.NewMockConn(ctrl)
 
-	h.Register(1, mockConn)
+	h.Register(1, conn)
+	h.JoinRoom(1, 10)
 	h.Unregister(1)
 
-	// Send после Unregister не должен вызывать Emit
-	mockConn.EXPECT().
-		Emit("test_event", "payload").
-		Times(0)
+	require.False(t, h.HasConnection(1))
 
-	h.Send(1, "test_event", "payload")
+	// после удаления — вызовов быть не должно
+	h.SendToRoom(10, "e", "d")
+}
+
+func TestHub_JoinAndLeaveRoom(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	h := ws.NewHub()
+	h.JoinRoom(1, 10)
+	h.JoinRoom(2, 10)
+
+	h.LeaveRoom(1, 10)
+	h.LeaveRoom(2, 10)
+
+	conn1 := mocks.NewMockConn(ctrl)
+	conn2 := mocks.NewMockConn(ctrl)
+
+	h.Register(1, conn1)
+	h.Register(2, conn2)
+
+	// не должны срабатывать, так как из комнаты вышли
+	h.SendToRoom(10, "x", "y")
+}
+
+func TestHub_HasConnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	h := ws.NewHub()
+	require.False(t, h.HasConnection(123))
+
+	conn := mocks.NewMockConn(ctrl)
+	h.Register(123, conn)
+
+	require.True(t, h.HasConnection(123))
 }

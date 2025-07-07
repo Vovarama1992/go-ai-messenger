@@ -42,6 +42,8 @@ message GetBindingsByChatRequest {
 message ChatBinding {
   int64 user_id = 1;
   BindingType binding_type = 2;
+  string thread_id = 3;
+  int64 chat_id = 4; 
 }
 
 message GetUsersByChatIDRequest {

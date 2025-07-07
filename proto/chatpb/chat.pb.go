@@ -279,6 +279,8 @@ type ChatBinding struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	BindingType   BindingType            `protobuf:"varint,2,opt,name=binding_type,json=bindingType,proto3,enum=chatpb.BindingType" json:"binding_type,omitempty"`
+	ThreadId      string                 `protobuf:"bytes,3,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	ChatId        int64                  `protobuf:"varint,4,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -325,6 +327,20 @@ func (x *ChatBinding) GetBindingType() BindingType {
 		return x.BindingType
 	}
 	return BindingType_BINDING_TYPE_UNSPECIFIED
+}
+
+func (x *ChatBinding) GetThreadId() string {
+	if x != nil {
+		return x.ThreadId
+	}
+	return ""
+}
+
+func (x *ChatBinding) GetChatId() int64 {
+	if x != nil {
+		return x.ChatId
+	}
+	return 0
 }
 
 type GetUsersByChatIDRequest struct {
@@ -690,10 +706,12 @@ const file_proto_chatpb_chat_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"3\n" +
 	"\x18GetBindingsByChatRequest\x12\x17\n" +
-	"\achat_id\x18\x01 \x01(\x03R\x06chatId\"^\n" +
+	"\achat_id\x18\x01 \x01(\x03R\x06chatId\"\x94\x01\n" +
 	"\vChatBinding\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x126\n" +
-	"\fbinding_type\x18\x02 \x01(\x0e2\x13.chatpb.BindingTypeR\vbindingType\"2\n" +
+	"\fbinding_type\x18\x02 \x01(\x0e2\x13.chatpb.BindingTypeR\vbindingType\x12\x1b\n" +
+	"\tthread_id\x18\x03 \x01(\tR\bthreadId\x12\x17\n" +
+	"\achat_id\x18\x04 \x01(\x03R\x06chatId\"2\n" +
 	"\x17GetUsersByChatIDRequest\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\x03R\x06chatId\"5\n" +
 	"\x18GetUsersByChatIDResponse\x12\x19\n" +
