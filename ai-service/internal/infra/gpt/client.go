@@ -3,8 +3,10 @@ package gpt
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	model "github.com/Vovarama1992/go-ai-messenger/ai-service/internal/dto"
+	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/dto"
+	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -12,6 +14,8 @@ type Client struct {
 	api         *openai.Client
 	assistantID string
 }
+
+var _ ports.GptClient = (*Client)(nil)
 
 func NewClient(apiKey string, assistantID string) *Client {
 	return &Client{
@@ -23,15 +27,13 @@ func NewClient(apiKey string, assistantID string) *Client {
 func (c *Client) CreateThreadForUserAndChat(
 	ctx context.Context,
 	userEmail string,
-	messages []model.ChatMessage,
+	messages []dto.ChatMessage,
 ) (string, error) {
-	// 1. Создаём пустой thread
 	thread, err := c.api.CreateThread(ctx, openai.ThreadRequest{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create thread: %w", err)
 	}
 
-	// 2. Добавляем system message про "главного" пользователя
 	systemPrompt := fmt.Sprintf(
 		"Ты создаёшь GPT thread для чата. Главный участник привязки: %s. "+
 			"Вот история переписки между пользователями. Проанализируй её.",
@@ -46,15 +48,14 @@ func (c *Client) CreateThreadForUserAndChat(
 		return "", fmt.Errorf("failed to add system prompt: %w", err)
 	}
 
-	// 3. Составляем единый блок всех сообщений
-	fullDialogue := ""
+	var sb strings.Builder
 	for _, msg := range messages {
-		fullDialogue += fmt.Sprintf("%s: %s\n", msg.SenderEmail, msg.Text)
+		sb.WriteString(fmt.Sprintf("%s: %s\n", msg.SenderEmail, msg.Text))
 	}
 
 	_, err = c.api.CreateMessage(ctx, thread.ID, openai.MessageRequest{
 		Role:    openai.ChatMessageRoleUser,
-		Content: fullDialogue,
+		Content: sb.String(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to add full dialogue: %w", err)
@@ -65,9 +66,7 @@ func (c *Client) CreateThreadForUserAndChat(
 
 func (c *Client) SendMessageToThread(
 	ctx context.Context,
-	threadID string,
-	role string,
-	content string,
+	threadID, role, content string,
 ) error {
 	_, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
 		Role:    role,
@@ -81,9 +80,7 @@ func (c *Client) SendMessageToThread(
 
 func (c *Client) SendMessageAndGetAutoreply(
 	ctx context.Context,
-	threadID string,
-	senderEmail string,
-	text string,
+	threadID, senderEmail, text string,
 ) (string, error) {
 	prompt := fmt.Sprintf(
 		"бро придумай ответ за юзера который привязал чат. сообщение пришло от: %s. текст сообщения: %s",
@@ -129,15 +126,12 @@ func (c *Client) GetAdvice(
 	ctx context.Context,
 	threadID string,
 ) (string, error) {
-	// Проверка контекста перед выполнением запроса
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err() // если контекст отменен, сразу выходим
+		return "", ctx.Err()
 	default:
-		// продолжаем выполнение
 	}
 
-	// 1. Добавляем сообщение "бро, дай совет"
 	_, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
 		Role:    openai.ChatMessageRoleUser,
 		Content: "бро, дай совет пользователю по текущему состоянию чата",
@@ -146,7 +140,6 @@ func (c *Client) GetAdvice(
 		return "", fmt.Errorf("failed to send advice request: %w", err)
 	}
 
-	// 2. Запускаем Assistant
 	run, err := c.api.CreateRun(ctx, threadID, openai.RunRequest{
 		AssistantID: c.assistantID,
 	})
@@ -154,35 +147,28 @@ func (c *Client) GetAdvice(
 		return "", fmt.Errorf("failed to create advice run: %w", err)
 	}
 
-	// 3. Ждём ответа
+waitRun:
 	for {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err() // если контекст отменен — выходим с ошибкой
+			return "", ctx.Err()
 		default:
 			run, err = c.api.RetrieveRun(ctx, threadID, run.ID)
 			if err != nil {
 				return "", fmt.Errorf("failed to retrieve run: %w", err)
 			}
-			if run.Status == openai.RunStatusCompleted {
-				break
-			}
-			if run.Status == openai.RunStatusFailed {
+			switch run.Status {
+			case openai.RunStatusCompleted:
+				break waitRun
+			case openai.RunStatusFailed:
 				return "", fmt.Errorf("advice run failed")
 			}
 		}
 	}
 
-	// 4. Читаем последний ответ
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err() // если контекст отменен — выходим с ошибкой
-	default:
-		// продолжаем выполнение
-		list, err := c.api.ListMessages(ctx, threadID, nil)
-		if err != nil || len(list.Messages) == 0 {
-			return "", fmt.Errorf("failed to list messages: %w", err)
-		}
-		return list.Messages[0].Content[0].Text.Value, nil
+	list, err := c.api.ListMessages(ctx, threadID, nil)
+	if err != nil || len(list.Messages) == 0 {
+		return "", fmt.Errorf("failed to list messages: %w", err)
 	}
+	return list.Messages[0].Content[0].Text.Value, nil
 }

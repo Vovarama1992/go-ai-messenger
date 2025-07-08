@@ -10,7 +10,7 @@ import (
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/usecase"
 )
 
-func RunAdviceReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptService) {
+func RunAdviceReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptClient) {
 	sem := make(chan struct{}, concurrency)
 
 	go func() {

@@ -10,7 +10,7 @@ import (
 
 var ResultChan = make(chan dto.ThreadResult, 100)
 
-func ProcessBindingInit(ctx context.Context, payload dto.AiBindingInitPayload, gpt ports.GptService) (dto.ThreadResult, error) {
+func ProcessBindingInit(ctx context.Context, payload dto.AiBindingInitPayload, gpt ports.GptClient) (dto.ThreadResult, error) {
 	threadID, err := gpt.CreateThreadForUserAndChat(
 		ctx,
 		payload.UserEmail,

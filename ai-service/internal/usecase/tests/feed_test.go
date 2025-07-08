@@ -17,7 +17,7 @@ func TestRunAiFeedReaderFromGpt_Autoreply(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGpt := mocks.NewMockGptService(ctrl)
+	mockGpt := mocks.NewMockGptClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

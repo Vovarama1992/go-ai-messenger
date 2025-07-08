@@ -13,7 +13,7 @@ import (
 
 // ai_feed_reader_from_gpt
 // Читает из FeedChan и шлёт сообщение в GPT-тред
-func RunAiFeedReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptService) {
+func RunAiFeedReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptClient) {
 	sem := make(chan struct{}, concurrency)
 
 	go func() {

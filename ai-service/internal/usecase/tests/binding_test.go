@@ -16,7 +16,7 @@ func TestProcessBindingInit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGpt := mocks.NewMockGptService(ctrl)
+	mockGpt := mocks.NewMockGptClient(ctrl)
 
 	payload := dto.AiBindingInitPayload{
 		UserEmail: "test@example.com",
@@ -43,7 +43,7 @@ func TestProcessBindingInit_Error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGpt := mocks.NewMockGptService(ctrl)
+	mockGpt := mocks.NewMockGptClient(ctrl)
 
 	payload := dto.AiBindingInitPayload{
 		UserEmail: "test@example.com",

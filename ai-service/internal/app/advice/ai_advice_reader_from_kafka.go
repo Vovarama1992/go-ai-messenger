@@ -6,11 +6,11 @@ import (
 	"log"
 
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/dto"
+	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/stream"
-	"github.com/segmentio/kafka-go"
 )
 
-func RunAdviceReaderFromKafka(ctx context.Context, concurrency int, reader *kafka.Reader) {
+func RunAdviceReaderFromKafka(ctx context.Context, concurrency int, reader ports.KafkaReader) {
 	for i := 0; i < concurrency; i++ {
 		go func(workerID int) {
 			log.Printf("📥 [advice_reader_from_kafka #%d] started", workerID)
@@ -29,7 +29,7 @@ func RunAdviceReaderFromKafka(ctx context.Context, concurrency int, reader *kafk
 					}
 
 					var payload dto.AdviceRequestPayload
-					if err := json.Unmarshal(m.Value, &payload); err != nil {
+					if err := json.Unmarshal(m, &payload); err != nil {
 						log.Printf("❌ [advice_reader_from_kafka #%d] invalid JSON: %v", workerID, err)
 						continue
 					}

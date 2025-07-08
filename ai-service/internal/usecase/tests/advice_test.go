@@ -16,7 +16,7 @@ func TestProcessAdviceRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGpt := mocks.NewMockGptService(ctrl)
+	mockGpt := mocks.NewMockGptClient(ctrl)
 
 	threadID := "thread-123"
 	expectedText := "вот тебе совет"
@@ -37,7 +37,7 @@ func TestProcessAdviceRequest_Error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGpt := mocks.NewMockGptService(ctrl)
+	mockGpt := mocks.NewMockGptClient(ctrl)
 	threadID := "thread-456"
 	payload := dto.AdviceRequestPayload{ThreadID: threadID}
 

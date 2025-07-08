@@ -69,3 +69,6 @@ list-tests:
 
 test:
 	go test ./... -cover -v
+
+test-integration:
+	go test -tags=integration ./... -v

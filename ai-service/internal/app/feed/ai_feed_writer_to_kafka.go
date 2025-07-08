@@ -7,11 +7,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/infra/kafka"
+	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/stream"
 )
 
-func RunAiFeedWriterToKafka(ctx context.Context, producer *kafka.Producer) {
+func RunAiFeedWriterToKafka(ctx context.Context, producer ports.KafkaProducer) {
 	go func() {
 		log.Println("📤 [ai_feed_writer_to_kafka] started")
 

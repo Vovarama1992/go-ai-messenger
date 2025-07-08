@@ -8,7 +8,7 @@ import (
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
 )
 
-func ProcessAdviceRequest(ctx context.Context, payload dto.AdviceRequestPayload, gpt ports.GptService) (dto.GptAdvice, error) {
+func ProcessAdviceRequest(ctx context.Context, payload dto.AdviceRequestPayload, gpt ports.GptClient) (dto.GptAdvice, error) {
 	log.Printf("💬 [advice] requesting advice for threadID=%s", payload.ThreadID)
 
 	answer, err := gpt.GetAdvice(ctx, payload.ThreadID)

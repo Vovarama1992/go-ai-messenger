@@ -12,7 +12,7 @@ import (
 
 // ai_create_binding_reader_from_gpt
 // Читает BindingInitPayload из канала, вызывает GPT и пишет ThreadResult в канал
-func RunAiCreateBindingReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptService) {
+func RunAiCreateBindingReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptClient) {
 	sem := make(chan struct{}, concurrency)
 
 	go func() {
