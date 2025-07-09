@@ -9,15 +9,15 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/Vovarama1992/go-ai-messenger/proto/chatpb"
+	grpcmock "github.com/Vovarama1992/go-ai-messenger/proto/chatpb/mocks"
 	grpcadapter "github.com/Vovarama1992/go-ai-messenger/ws-ai-advice/internal/infra/grpc"
-	"github.com/Vovarama1992/go-ai-messenger/ws-ai-advice/internal/mocks"
 )
 
 func TestChatServiceAdapter_GetUserWithChatByThreadID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := mocks.NewMockChatServiceClient(ctrl)
+	mockClient := grpcmock.NewMockChatServiceClient(ctrl)
 	service := grpcadapter.NewChatService(mockClient)
 
 	t.Run("success", func(t *testing.T) {

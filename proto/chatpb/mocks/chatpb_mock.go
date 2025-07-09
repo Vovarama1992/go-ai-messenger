@@ -7,7 +7,7 @@
 //
 
 // Package mock_chatpb is a generated GoMock package.
-package mocks
+package mock_chatpb
 
 import (
 	context "context"

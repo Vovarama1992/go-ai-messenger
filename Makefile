@@ -28,6 +28,21 @@ generate-mocks:
 		done; \
 	done
 
+generate-grpc-mocks:
+	@for dir in proto/*/; do \
+		pkg=$$(basename $$dir); \
+		protofile=$$(find $$dir -name "*.proto"); \
+		if [ -n "$$protofile" ]; then \
+			echo "📦 Обрабатываем $$protofile"; \
+			protoc --go_out=. --go-grpc_out=. --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative $$protofile; \
+			mockdir=proto/$$pkg/mocks; \
+			mkdir -p "$$mockdir"; \
+			service_name=$$(grep -oP 'service\s+\K\w+' $$protofile | head -n 1); \
+			mockgen "github.com/Vovarama1992/go-ai-messenger/proto/$$pkg" "$${service_name}Client" > "$$mockdir/$$pkg""_mock.go"; \
+			echo "  ✅ сгенерированы моки: $$mockdir/$$pkg""_mock.go"; \
+		fi \
+	done
+
 swagger-init:
 	@for dir in */; do \
 		path=$$(find $$dir -type f -name routes.go | grep '/internal/.*/http/routes.go' | head -n 1); \
