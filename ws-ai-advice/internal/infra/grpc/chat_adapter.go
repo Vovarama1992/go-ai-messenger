@@ -28,3 +28,16 @@ func (c *ChatServiceAdapter) GetUserWithChatByThreadID(threadID string) (int64, 
 	}
 	return resp.UserId, resp.ChatId, resp.UserEmail, nil
 }
+
+func (c *ChatServiceAdapter) GetThreadContext(threadID string) (int64, string, int64, []int64, error) {
+	resp, err := c.client.GetThreadContext(context.Background(), &chatpb.GetThreadContextRequest{
+		ThreadId: threadID,
+	})
+	if err != nil {
+		return 0, "", 0, nil, err
+	}
+	if resp == nil {
+		return 0, "", 0, nil, fmt.Errorf("nil response from chat service")
+	}
+	return resp.SenderUserId, resp.SenderUserEmail, resp.ChatId, resp.ChatUserIds, nil
+}

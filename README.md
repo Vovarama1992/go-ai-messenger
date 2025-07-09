@@ -190,3 +190,49 @@ stream/ — очереди между этапами
 
 Всё взаимодействие идёт через интерфейсы (ports/). В тестах реализации подменяются сгенерированными на их основе моками.
 
+7. ws-ai-advice
+Микросервис для доставки AI-советов по WebSocket.
+
+🔌 Входящие зависимости
+Kafka
+
+TOPIC_AI_ADVICE_RESPONSE — AI-сообщения (text + threadID)
+
+gRPC
+
+chat-service:
+
+GetUserWithChatByThreadID(threadID) → userID, chatID, email
+
+GetThreadContext(threadID) → senderID, email, chatID, participants
+
+auth-service:
+
+ValidateToken(token) → userID, email
+
+🔁 Пайплайн
+Читаем из Kafka (TOPIC_AI_ADVICE_RESPONSE)
+
+Получаем по threadID данные от chat-service
+
+Обогащённое сообщение (chatID, userID, text) отправляем пользователю через WebSocket (gpt-advice)
+
+🔐 Подключение по WebSocket
+На onConnect валидируем токен через auth-service
+
+Регистрируем пользователя в Hub (userID → Conn)
+
+Hub отправляет сообщения по userID
+
+✅ Покрытие тестами
+Все зависимости описаны в internal/ports/ и покрываются моками (make generate-mocks).
+Покрыты все этапы пайплайна:
+
+RunAdviceReaderFromKafka (Kafka → chan)
+
+RunChannelsBetweener (gRPC enrich → chan)
+
+RunAdvicePusherToFronts (chan → WebSocket)
+
+onConnectHandler (токен → регистрация/отказ)
+
