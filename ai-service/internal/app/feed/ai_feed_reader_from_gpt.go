@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/dto"
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
@@ -33,6 +34,8 @@ func RunAiFeedReaderFromGpt(ctx context.Context, concurrency int, gpt ports.GptC
 
 					switch p.BindingType {
 					case "autoreply":
+						ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+						defer cancel()
 						reply, err := gpt.SendMessageAndGetAutoreply(ctx, p.ThreadID, p.SenderEmail, p.Text)
 						if err != nil {
 							log.Printf("❌ GPT autoreply error for thread %s: %v", p.ThreadID, err)

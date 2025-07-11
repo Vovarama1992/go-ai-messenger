@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/gptutil"
 
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/dto"
 	"github.com/Vovarama1992/go-ai-messenger/ai-service/internal/ports"
@@ -13,17 +16,20 @@ import (
 type Client struct {
 	api         *openai.Client
 	assistantID string
+	apiKey      string // ← добавь это
+	baseURL     string
 }
 
 var _ ports.GptClient = (*Client)(nil)
 
-func NewClient(apiKey string, assistantID string) *Client {
+func NewClient(apiKey string, assistantID string, baseURL string) *Client {
 	return &Client{
 		api:         openai.NewClient(apiKey),
 		assistantID: assistantID,
+		apiKey:      apiKey,
+		baseURL:     baseURL,
 	}
 }
-
 func (c *Client) CreateThreadForUserAndChat(
 	ctx context.Context,
 	userEmail string,
@@ -80,19 +86,20 @@ func (c *Client) SendMessageToThread(
 
 func (c *Client) SendMessageAndGetAutoreply(
 	ctx context.Context,
-	threadID, senderEmail, text string,
+	threadID string,
+	senderEmail string,
+	text string,
 ) (string, error) {
 	prompt := fmt.Sprintf(
 		"бро придумай ответ за юзера который привязал чат. сообщение пришло от: %s. текст сообщения: %s",
 		senderEmail, text,
 	)
 
-	_, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
+	if _, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
 		Role:    openai.ChatMessageRoleUser,
 		Content: prompt,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to send message: %w", err)
+	}); err != nil {
+		return "", fmt.Errorf("failed to send message to thread: %w", err)
 	}
 
 	run, err := c.api.CreateRun(ctx, threadID, openai.RunRequest{
@@ -102,24 +109,27 @@ func (c *Client) SendMessageAndGetAutoreply(
 		return "", fmt.Errorf("failed to create run: %w", err)
 	}
 
+waitRun:
 	for {
-		run, err = c.api.RetrieveRun(ctx, threadID, run.ID)
-		if err != nil {
-			return "", fmt.Errorf("failed to retrieve run: %w", err)
-		}
-		if run.Status == openai.RunStatusCompleted {
-			break
-		}
-		if run.Status == openai.RunStatusFailed {
-			return "", fmt.Errorf("run failed")
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+			run, err = c.api.RetrieveRun(ctx, threadID, run.ID)
+			if err != nil {
+				return "", fmt.Errorf("failed to retrieve run: %w", err)
+			}
+			if run.Status == openai.RunStatusCompleted {
+				break waitRun
+			}
+			if run.Status == openai.RunStatusFailed {
+				return "", fmt.Errorf("run failed")
+			}
+			time.Sleep(1 * time.Second)
 		}
 	}
 
-	list, err := c.api.ListMessages(ctx, threadID, nil)
-	if err != nil || len(list.Messages) == 0 {
-		return "", fmt.Errorf("failed to list messages: %w", err)
-	}
-	return list.Messages[0].Content[0].Text.Value, nil
+	return gptutil.GetLastAssistantMessage(ctx, c.apiKey, c.baseURL, threadID)
 }
 
 func (c *Client) GetAdvice(
@@ -132,11 +142,10 @@ func (c *Client) GetAdvice(
 	default:
 	}
 
-	_, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
+	if _, err := c.api.CreateMessage(ctx, threadID, openai.MessageRequest{
 		Role:    openai.ChatMessageRoleUser,
 		Content: "бро, дай совет пользователю по текущему состоянию чата",
-	})
-	if err != nil {
+	}); err != nil {
 		return "", fmt.Errorf("failed to send advice request: %w", err)
 	}
 
@@ -157,18 +166,15 @@ waitRun:
 			if err != nil {
 				return "", fmt.Errorf("failed to retrieve run: %w", err)
 			}
-			switch run.Status {
-			case openai.RunStatusCompleted:
+			if run.Status == openai.RunStatusCompleted {
 				break waitRun
-			case openai.RunStatusFailed:
+			}
+			if run.Status == openai.RunStatusFailed {
 				return "", fmt.Errorf("advice run failed")
 			}
+			time.Sleep(1 * time.Second)
 		}
 	}
 
-	list, err := c.api.ListMessages(ctx, threadID, nil)
-	if err != nil || len(list.Messages) == 0 {
-		return "", fmt.Errorf("failed to list messages: %w", err)
-	}
-	return list.Messages[0].Content[0].Text.Value, nil
+	return gptutil.GetLastAssistantMessage(ctx, c.apiKey, c.baseURL, threadID)
 }

@@ -31,13 +31,17 @@ func main() {
 	topicPersist := os.Getenv("TOPIC_MESSAGE_PERSIST")
 	topicAdviceReq := os.Getenv("TOPIC_AI_ADVICE_REQUEST")
 	topicAdviceResp := os.Getenv("TOPIC_AI_ADVICE_RESPONSE")
+	baseOpenAiURL := os.Getenv("OPENAI_BASE_URL")
+	if baseOpenAiURL == "" {
+		baseOpenAiURL = "https://api.openai.com"
+	}
 
 	if topicAiAutoreply == "" {
 		log.Fatal("❌ TOPIC_AI_AUTOREPLY is not set")
 	}
 
 	// GPT client
-	gptClient := gpt.NewClient(apiKey, assistantID)
+	gptClient := gpt.NewClient(apiKey, assistantID, baseOpenAiURL)
 
 	// Kafka readers
 	bindingReader := kafka.NewKafkaReader(broker, topicBindingInit, "ai-binding-init-group")
