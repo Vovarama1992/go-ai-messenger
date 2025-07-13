@@ -6,26 +6,34 @@ import (
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
+	"github.com/Vovarama1992/go-ai-messenger/pkg/grpcutil"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/status"
 )
 
 type AuthServiceImpl struct {
-	userClient ports.UserClient
-	jwtSecret  string
+	userClient    ports.UserClient
+	jwtSecret     string
+	bcryptLimiter chan struct{}
 }
 
-func NewAuthService(userClient ports.UserClient, jwtSecret string) *AuthServiceImpl {
+func NewAuthService(userClient ports.UserClient, jwtSecret string, bcryptLimiter chan struct{}) *AuthServiceImpl {
 	return &AuthServiceImpl{
-		userClient: userClient,
-		jwtSecret:  jwtSecret,
+		userClient:    userClient,
+		jwtSecret:     jwtSecret,
+		bcryptLimiter: bcryptLimiter,
 	}
 }
 
 func (s *AuthServiceImpl) Login(ctx context.Context, email, password string) (string, error) {
 	id, passwordHash, err := s.userClient.GetByEmail(ctx, email)
 	if err != nil {
-		return "", err
+		if st, ok := status.FromError(err); ok && grpcutil.ShouldRetryCode(st.Code()) {
+			return "", errors.New("user-service unavailable")
+		}
+
+		return "", errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)); err != nil {
@@ -47,6 +55,12 @@ func (s *AuthServiceImpl) Register(ctx context.Context, email, password string) 
 	if err == nil {
 		return 0, errors.New("user already exists")
 	}
+	if st, ok := status.FromError(err); ok && grpcutil.ShouldRetryCode(st.Code()) {
+		return 0, errors.New("user-service unavailable")
+	}
+
+	s.bcryptLimiter <- struct{}{}
+	defer func() { <-s.bcryptLimiter }()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -70,6 +84,13 @@ func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string)
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return 0, "", errors.New("invalid claims")
+	}
+
+	// Явно проверяем срок жизни токена
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			return 0, "", errors.New("token expired")
+		}
 	}
 
 	sub, ok := claims["sub"].(float64)

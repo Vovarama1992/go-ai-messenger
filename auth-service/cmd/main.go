@@ -10,16 +10,17 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/adapters/grpc"
-	httpadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/adapters/http"
+	grpchandler "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/delivery/grpc"
+	httpadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/delivery/http"
+	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/infra"
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
 	auth "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/usecase"
+	"github.com/Vovarama1992/go-ai-messenger/pkg/grpcutil"
 	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
 	"github.com/Vovarama1992/go-ai-messenger/proto/userpb"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -49,21 +50,26 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(
-		ctx,
-		userServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	conn, err := grpcadapter.NewUserServiceConn(ctx, userServiceAddr)
 	if err != nil {
 		log.Fatalf("gRPC подключение к user-service не удалось: %v", err)
 	}
 	defer conn.Close()
 
+	breaker := grpcutil.NewBreaker(grpcutil.BreakerConfig{
+		Name:                "user-service",
+		Mode:                grpcutil.ModeConsecutive,
+		FailureThreshold:    5,
+		OpenStateTimeout:    30 * time.Second,
+		HalfOpenMaxRequests: 1,
+	})
+
 	userGrpc := userpb.NewUserServiceClient(conn)
-	var userClient ports.UserClient = grpcadapter.NewGrpcUserClient(userGrpc)
+	var userClient ports.UserClient = grpcadapter.NewGrpcUserClient(userGrpc, breaker)
 
 	// Инициализация сервисов и хендлеров
-	usecase := auth.NewAuthService(userClient, jwtSecret)
+	bcryptLimiter := make(chan struct{}, 4)
+	usecase := auth.NewAuthService(userClient, jwtSecret, bcryptLimiter)
 	httpHandler := httpadapter.NewHandler(usecase)
 
 	// HTTP маршруты
@@ -89,7 +95,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	grpcHandler := grpcadapter.NewHandler(usecase)
+	grpcHandler := grpchandler.NewHandler(usecase)
 	authpb.RegisterAuthServiceServer(grpcServer, grpcHandler)
 
 	log.Printf("auth-service gRPC server запущен на :%s\n", grpcPort)

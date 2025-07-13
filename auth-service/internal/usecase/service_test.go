@@ -22,6 +22,10 @@ func getTestSecret() string {
 	return secret
 }
 
+func getTestBcryptLimiter() chan struct{} {
+	return make(chan struct{}, 4) // В тестах пусть будет 4
+}
+
 // === СЦЕНАРИЙ 1: юзер не найден ===
 func TestLogin_UserNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -32,7 +36,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 		GetByEmail(gomock.Any(), "test@example.com").
 		Return(int64(0), "", errors.New("user not found"))
 
-	service := NewAuthService(mock, getTestSecret())
+	service := NewAuthService(mock, getTestSecret(), getTestBcryptLimiter())
 	_, err := service.Login(context.Background(), "test@example.com", "password123")
 
 	if err == nil {
@@ -52,7 +56,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 		GetByEmail(gomock.Any(), "test@example.com").
 		Return(int64(1), string(hash), nil)
 
-	service := NewAuthService(mock, getTestSecret())
+	service := NewAuthService(mock, getTestSecret(), getTestBcryptLimiter())
 	_, err := service.Login(context.Background(), "test@example.com", "wrongpassword")
 
 	if err == nil {
@@ -72,7 +76,7 @@ func TestLogin_Success(t *testing.T) {
 		GetByEmail(gomock.Any(), "test@example.com").
 		Return(int64(1), string(hash), nil)
 
-	service := NewAuthService(mock, getTestSecret())
+	service := NewAuthService(mock, getTestSecret(), getTestBcryptLimiter())
 	token, err := service.Login(context.Background(), "test@example.com", "mypassword")
 
 	if err != nil {
@@ -84,14 +88,17 @@ func TestLogin_Success(t *testing.T) {
 }
 
 func TestValidateToken_Success(t *testing.T) {
-	service := NewAuthService(nil, getTestSecret())
+	service := NewAuthService(nil, getTestSecret(), getTestBcryptLimiter())
 
-	token, err := service.Login(context.Background(), "test@example.com", "testpass")
-	if err != nil {
-		t.Fatalf("Не удалось создать токен: %v", err)
+	claims := jwt.MapClaims{
+		"sub":   float64(1),
+		"email": "test@example.com",
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
 	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, _ := token.SignedString([]byte(getTestSecret()))
 
-	userID, email, err := service.ValidateToken(context.Background(), token)
+	userID, email, err := service.ValidateToken(context.Background(), signed)
 	if err != nil {
 		t.Errorf("Не ожидалась ошибка: %v", err)
 	}
@@ -104,7 +111,7 @@ func TestValidateToken_Success(t *testing.T) {
 }
 
 func TestValidateToken_InvalidFormat(t *testing.T) {
-	service := NewAuthService(nil, getTestSecret())
+	service := NewAuthService(nil, getTestSecret(), getTestBcryptLimiter())
 
 	_, _, err := service.ValidateToken(context.Background(), "foobar.invalid.token")
 	if err == nil {
@@ -113,7 +120,7 @@ func TestValidateToken_InvalidFormat(t *testing.T) {
 }
 
 func TestValidateToken_MissingSub(t *testing.T) {
-	service := NewAuthService(nil, getTestSecret())
+	service := NewAuthService(nil, getTestSecret(), getTestBcryptLimiter())
 
 	claims := jwt.MapClaims{
 		"exp":   time.Now().Add(1 * time.Hour).Unix(),

@@ -10,6 +10,9 @@ package httpadapter
 
 import (
 	"net/http"
+	"time"
+
+	"github.com/Vovarama1992/go-ai-messenger/pkg/httputil"
 )
 
 func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
@@ -21,7 +24,13 @@ func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
 	// @Success 200 {object} tokenResponse
 	// @Failure 401 {string} string "unauthorized"
 	// @Router /login [post]
-	mux.HandleFunc("/login", handler.Login)
+	mux.Handle("/login",
+		httputil.RecoverMiddleware(
+			httputil.NewRateLimiter(5, time.Minute)(
+				http.HandlerFunc(handler.Login),
+			),
+		),
+	)
 
 	// @Summary Регистрация
 	// @Description Регистрация нового пользователя
@@ -31,5 +40,11 @@ func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
 	// @Success 200 {object} tokenResponse
 	// @Failure 409 {string} string "conflict"
 	// @Router /register [post]
-	mux.HandleFunc("/register", handler.Register)
+	mux.Handle("/register",
+		httputil.RecoverMiddleware(
+			httputil.NewRateLimiter(3, time.Minute)(
+				http.HandlerFunc(handler.Register),
+			),
+		),
+	)
 }
