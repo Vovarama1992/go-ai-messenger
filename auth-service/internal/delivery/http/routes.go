@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Vovarama1992/go-ai-messenger/pkg/httputil"
+	"github.com/Vovarama1992/go-utils/httputil"
 )
 
 func RegisterRoutes(mux *http.ServeMux, handler *Handler) {

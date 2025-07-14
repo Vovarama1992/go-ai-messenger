@@ -10,14 +10,15 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
+	circuitbreaker "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/config"
 	grpchandler "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/delivery/grpc"
 	httpadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/delivery/http"
 	grpcadapter "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/infra"
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
 	auth "github.com/Vovarama1992/go-ai-messenger/auth-service/internal/usecase"
-	"github.com/Vovarama1992/go-ai-messenger/pkg/grpcutil"
 	authpb "github.com/Vovarama1992/go-ai-messenger/proto/authpb"
 	"github.com/Vovarama1992/go-ai-messenger/proto/userpb"
+	"github.com/Vovarama1992/go-utils/grpcutil"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
@@ -56,13 +57,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	breaker := grpcutil.NewBreaker(grpcutil.BreakerConfig{
-		Name:                "user-service",
-		Mode:                grpcutil.ModeConsecutive,
-		FailureThreshold:    5,
-		OpenStateTimeout:    30 * time.Second,
-		HalfOpenMaxRequests: 1,
-	})
+	breaker := circuitbreaker.NewUserServiceBreaker()
 
 	userGrpc := userpb.NewUserServiceClient(conn)
 	var userClient ports.UserClient = grpcadapter.NewGrpcUserClient(userGrpc, breaker)
@@ -94,7 +89,11 @@ func main() {
 		log.Fatalf("не удалось слушать gRPC порт: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			grpcutil.RecoveryInterceptor(),
+		),
+	)
 	grpcHandler := grpchandler.NewHandler(usecase)
 	authpb.RegisterAuthServiceServer(grpcServer, grpcHandler)
 

@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
-	"github.com/Vovarama1992/go-ai-messenger/pkg/grpcutil"
+	"github.com/Vovarama1992/go-utils/grpcutil"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -51,23 +52,31 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email, password string) (st
 }
 
 func (s *AuthServiceImpl) Register(ctx context.Context, email, password string) (int64, error) {
-	_, _, err := s.userClient.GetByEmail(ctx, email)
-	if err == nil {
-		return 0, errors.New("user already exists")
-	}
-	if st, ok := status.FromError(err); ok && grpcutil.ShouldRetryCode(st.Code()) {
-		return 0, errors.New("user-service unavailable")
-	}
-
+	// Ограничение на bcrypt
 	s.bcryptLimiter <- struct{}{}
 	defer func() { <-s.bcryptLimiter }()
 
+	// Хешируем пароль
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, err
 	}
 
-	return s.userClient.Create(ctx, email, string(hash))
+	// Пытаемся создать пользователя
+	id, err := s.userClient.Create(ctx, email, string(hash))
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.AlreadyExists {
+				return 0, errors.New("email already registered")
+			}
+			if grpcutil.ShouldRetryCode(st.Code()) {
+				return 0, errors.New("user-service unavailable")
+			}
+		}
+		return 0, errors.New("internal error")
+	}
+
+	return id, nil
 }
 
 func (s *AuthServiceImpl) ValidateToken(ctx context.Context, tokenString string) (int64, string, error) {

@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New()
 
 type Handler struct {
 	service ports.AuthService
@@ -17,25 +20,15 @@ func NewHandler(service ports.AuthService) *Handler {
 	return &Handler{service: service}
 }
 
-type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type registerRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type tokenResponse struct {
-	UserID int64  `json:"user_id,omitempty"`
-	Token  string `json:"access_token,omitempty"`
-}
-
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
+	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	if err := validate.Struct(req); err != nil {
+		http.Error(w, "validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -48,13 +41,18 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(tokenResponse{Token: token})
+	json.NewEncoder(w).Encode(TokenResponse{Email: req.Email, Token: token})
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	var req registerRequest
+	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	if err := validate.Struct(req); err != nil {
+		http.Error(w, "validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -67,5 +65,5 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(tokenResponse{UserID: id})
+	json.NewEncoder(w).Encode(TokenResponse{UserID: id, Email: req.Email})
 }
