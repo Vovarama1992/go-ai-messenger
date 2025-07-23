@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	chatgrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
+	chatgrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/grpc"
 	mock_ports "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/mocks"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/ports"

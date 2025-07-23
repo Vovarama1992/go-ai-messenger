@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	handler "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/http"
+	handler "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/http"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/mocks"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"

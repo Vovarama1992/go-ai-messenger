@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
-	chatgrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/grpc"
-	chathttp "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/http"
-	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/adapters/postgres"
+	deliverygrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/grpc"
+	chathttp "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/http"
+	infragrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/grpc"
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/kafka"
+	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/postgres"
+	dbinfra "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/postgres"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/ports"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"
@@ -52,14 +53,12 @@ func main() {
 	}
 
 	// DB
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatalf("❌ failed to connect to DB: %v", err)
-	}
+	db, err := dbinfra.NewPostgresConnection(dbURL)
+	breaker := dbinfra.NewBreaker()
 	defer db.Close()
 
-	var chatRepo ports.ChatRepository = postgres.NewChatRepo(db)
-	var bindingRepo ports.ChatBindingRepository = postgres.NewChatBindingRepo(db)
+	var chatRepo ports.ChatRepository = postgres.NewChatRepo(db, breaker)
+	var bindingRepo ports.ChatBindingRepository = postgres.NewChatBindingRepo(db, breaker)
 
 	// Kafka producer
 	writer := kafkaadapter.NewKafkaWriter()
@@ -81,8 +80,8 @@ func main() {
 	}
 	defer msgConn.Close()
 	defer userConn.Close()
-	msgClient := chatgrpc.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
-	userClient := chatgrpc.NewGrpcUserClient(userpb.NewUserServiceClient(userConn))
+	msgClient := infragrpc.NewGrpcMessageClient(messagepb.NewMessageServiceClient(msgConn))
+	userClient := infragrpc.NewGrpcUserClient(userpb.NewUserServiceClient(userConn))
 	userService := usecase.NewUserService(userClient)
 
 	// Services
@@ -124,7 +123,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	grpcHandler := chatgrpc.NewChatHandler(chatService, bindingService, userService)
+	grpcHandler := deliverygrpc.NewChatHandler(chatService, bindingService, userService)
 	chatpb.RegisterChatServiceServer(grpcServer, grpcHandler)
 
 	log.Printf("🚀 gRPC server started on :%s", chatGRPCPort)
