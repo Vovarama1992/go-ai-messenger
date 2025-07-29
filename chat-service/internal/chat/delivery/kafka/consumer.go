@@ -17,7 +17,7 @@ func NewKafkaConsumer(reader *kafka.Reader) *KafkaConsumer {
 	return &KafkaConsumer{reader: reader}
 }
 
-func (c *KafkaConsumer) StartConsumingThreadResults(ctx context.Context, handler func(model.ThreadResult)) error {
+func (c *KafkaConsumer) StartConsumingThreadResults(ctx context.Context, handler func(model.ThreadResult) error) error {
 	log.Println("🟢 Kafka consumer started: chat.binding.thread-created")
 
 	for {
@@ -33,7 +33,13 @@ func (c *KafkaConsumer) StartConsumingThreadResults(ctx context.Context, handler
 			continue
 		}
 
-		log.Printf("📥 Received thread result: chatID=%d userID=%d threadID=%s", result.ChatID, result.UserID, result.ThreadID)
-		handler(result)
+		if err := handler(result); err != nil {
+			log.Printf("❌ Handler failed: %v", err)
+			continue
+		}
+
+		if err := c.reader.CommitMessages(ctx, m); err != nil {
+			log.Printf("❌ Commit failed: %v", err)
+		}
 	}
 }

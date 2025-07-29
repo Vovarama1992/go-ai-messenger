@@ -6,7 +6,10 @@ GO_OUT := .
 PROTOC := protoc
 SHELL := /bin/bash
 
-.PHONY: proto generate-mocks
+.PHONY: proto generate-mocks generate-grpc-mocks swagger-init migrate-up migrate-down list-tests test test-integration up
+
+up:
+	docker-compose up -d
 
 proto:
 	$(PROTOC) \

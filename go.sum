@@ -12,6 +12,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/Vovarama1992/go-utils v0.0.0-20250714105211-8783c4a14fe0 h1:f3q4fpll9ZNdAlszlPAwu8ClVqPMxtqAJqe/HS5UA8E=
 github.com/Vovarama1992/go-utils v0.0.0-20250714105211-8783c4a14fe0/go.mod h1:D7/bnAETXt7S6JMNPq2Kt/LHVX49gkDpzx2Okv2wfOA=
+github.com/Vovarama1992/go-utils v0.0.0-20250724110426-34d015d6bdfd h1:mY+LRshjlWGvBS6N2FaSFRV78825q97krfs0ROay49U=
+github.com/Vovarama1992/go-utils v0.0.0-20250724110426-34d015d6bdfd/go.mod h1:D7/bnAETXt7S6JMNPq2Kt/LHVX49gkDpzx2Okv2wfOA=
 github.com/agiledragon/gomonkey/v2 v2.3.1 h1:k+UnUY0EMNYUFUAQVETGY9uUTxjMdnUkP0ARyJS1zzs=
 github.com/agiledragon/gomonkey/v2 v2.3.1/go.mod h1:ap1AmDzcVOAz1YpeJ3TCzIgstoaWLA6jbbgxfB4w2iY=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=

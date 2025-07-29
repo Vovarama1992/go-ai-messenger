@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Vovarama1992/go-ai-messenger/auth-service/internal/ports"
+	"github.com/Vovarama1992/go-utils/ctxutil"
 	"github.com/Vovarama1992/go-utils/grpcutil"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -28,6 +29,8 @@ func NewAuthService(userClient ports.UserClient, jwtSecret string, bcryptLimiter
 }
 
 func (s *AuthServiceImpl) Login(ctx context.Context, email, password string) (string, error) {
+	ctx, cancel := ctxutil.WithTimeout(ctx, 2)
+	defer cancel()
 	id, passwordHash, err := s.userClient.GetByEmail(ctx, email)
 	if err != nil {
 		if st, ok := status.FromError(err); ok && grpcutil.ShouldRetryCode(st.Code()) {
@@ -52,6 +55,8 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email, password string) (st
 }
 
 func (s *AuthServiceImpl) Register(ctx context.Context, email, password string) (int64, error) {
+	ctx, cancel := ctxutil.WithTimeout(ctx, 2)
+	defer cancel()
 	// Ограничение на bcrypt
 	s.bcryptLimiter <- struct{}{}
 	defer func() { <-s.bcryptLimiter }()

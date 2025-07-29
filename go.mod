@@ -32,7 +32,7 @@ require (
 )
 
 require (
-	github.com/Vovarama1992/go-utils v0.0.0-20250714105211-8783c4a14fe0
+	github.com/Vovarama1992/go-utils v0.0.0-20250724110426-34d015d6bdfd
 	github.com/go-chi/httprate v0.15.0 // indirect
 )
 

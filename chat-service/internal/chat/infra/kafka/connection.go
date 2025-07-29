@@ -13,8 +13,9 @@ func NewKafkaWriter() *kafka.Writer {
 	}
 
 	return &kafka.Writer{
-		Addr:     kafka.TCP(broker),
-		Balancer: &kafka.LeastBytes{},
+		Addr:         kafka.TCP(broker),
+		RequiredAcks: kafka.RequireAll,
+		Balancer:     &kafka.LeastBytes{},
 	}
 }
 
@@ -25,8 +26,9 @@ func NewKafkaReader(topic string, groupID string) *kafka.Reader {
 	}
 
 	return kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker},
-		Topic:   topic,
-		GroupID: groupID,
+		Brokers:        []string{broker},
+		Topic:          topic,
+		GroupID:        groupID,
+		CommitInterval: 0,
 	})
 }

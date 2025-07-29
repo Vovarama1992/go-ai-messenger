@@ -9,6 +9,7 @@ import (
 
 	deliverygrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/grpc"
 	chathttp "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/http"
+	kafkaconsumer "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/delivery/kafka"
 	infragrpc "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/grpc"
 	kafkaadapter "github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/kafka"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/infra/postgres"
@@ -32,8 +33,6 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// ENV
-	dbURL := os.Getenv("DATABASE_URL")
 	chatHTTPPort := getEnvOrDefault("CHAT_HTTP_PORT", "8081")
 	chatGRPCPort := getEnvOrDefault("CHAT_GRPC_PORT", "50053")
 	authGRPCAddr := getEnvOrDefault("AUTH_SERVICE_GRPC_ADDR", "auth-service:50052")
@@ -48,13 +47,9 @@ func main() {
 		log.Fatal("❌ TOPIC_CHAT_INVITE env is not set")
 	}
 
-	if dbURL == "" || bindingTopic == "" || messageGRPCAddr == "" || resultTopic == "" {
-		log.Fatal("❌ One or more required environment variables are not set")
-	}
-
 	// DB
-	db, err := dbinfra.NewPostgresConnection(dbURL)
-	breaker := dbinfra.NewBreaker()
+	db := dbinfra.NewPgConn()
+	breaker := dbinfra.NewPgBreaker()
 	defer db.Close()
 
 	var chatRepo ports.ChatRepository = postgres.NewChatRepo(db, breaker)
@@ -67,7 +62,7 @@ func main() {
 
 	// Kafka consumer (чтение chat.binding.thread-created)
 	reader := kafkaadapter.NewKafkaReader(resultTopic, "chat-service")
-	consumer := kafkaadapter.NewKafkaConsumer(reader)
+	consumer := kafkaconsumer.NewKafkaConsumer(reader)
 
 	// Message gRPC client
 	msgConn, err := grpc.Dial(messageGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

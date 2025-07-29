@@ -1,262 +1,160 @@
-ОБЩИЕ ПРАВИЛА
+# AI Messenger
 
-📦 Общие пакеты утилит
-Для всех микросервисов используется единая библиотека общих утилит:
-github.com/Vovarama1992/go-utils
+AI Messenger — микросервисное чат-приложение с AI-ответами на базе OpenAI GPT.  
+Архитектура: Kafka + gRPC + WebSocket, реализована по чистой архитектуре.  
+Каждое сообщение проходит пайплайн: от пользователя до AI и обратно — с логикой и retry на каждом этапе.
 
-Эта библиотека создана как переиспользуемый набор утилит для Go микросервисов.
+---
 
-Содержит стандартные решения:
+## 📐 Архитектура
 
-grpcutil — Circuit Breaker, Retry, Recover для gRPC
+![AI Messenger Architecture](docs/architecture.png)
 
-httputil — Recover, Throttle для HTTP
+---
 
-pgutil — Circuit Breaker, pgx Pool Helper для Postgres
+## 🧩 Микросервисы
 
-Примеры использования:
-    import "github.com/Vovarama1992/go-utils/grpcutil"
-    import "github.com/Vovarama1992/go-utils/httputil"
-    import "github.com/Vovarama1992/go-utils/pgutil"
+- `auth-service` — аутентификация, JWT
+- `user-service` — создание/получение пользователя
+- `chat-service` — биндинги, threadID, чат-контекст
+- `message-service` — история сообщений, сохранение
+- `ws-gateway` — WebSocket-приём и отправка сообщений
+- `ai-service` — обработка binding/feed/advice через GPT
+- `ws-ai-advice` — WebSocket-доставка AI-ответов
 
-Ранее аналогичные утилиты находились в pkg/ внутри текущего проекта.
-Теперь подключаем строго как внешнюю зависимость:
+---
 
-   go get github.com/Vovarama1992/go-utils@latest
+## 🔄 Поток данных
 
-📁 Расположение интерфейсов (ports)
+1. Пользователь отправляет сообщение через WebSocket (`ws-gateway`)
+2. Сервис проверяет биндинги чата (gRPC в `chat-service`)
+3. Если есть биндинги:
+    - Сообщение пишется в Kafka `chat.message.persist`
+    - Копия сообщения пишется в `chat.message.ai.feed`
+4. `ai-service`:
+    - Читает feed, отправляет в GPT
+    - Пишет AI-ответ в `chat.message.ai-autoreply`
+5. `ws-ai-advice`:
+    - Читает `chat.message.ai-autoreply`
+    - Получает контекст (gRPC в `chat-service`)
+    - Пушит ответ в нужный WebSocket-рум
 
-Все зависимости между слоями (gRPC-клиенты, Kafka-паблишеры и пр.) описываются через интерфейсы и располагаются в:
+---
 
-internal/**/ports/ Это требует команда make generate-mocks
+## ⚙️ Быстрый старт
 
-Интерфейсы используются в usecase-слое, конкретные реализации — в adapters.
+```bash
+make up            # Поднять всё через docker-compose
+make migrate-up    # Применить миграции (migrate/migrate)
+make proto         # Сгенерировать gRPC-код из .proto
+make generate-mocks  # Сгенерировать моки из интерфейсов
+make swagger-init     # Сгенерировать Swagger-доки из routes.go
+```
 
-🌐 HTTP-роуты и Swagger
+---
 
-Все HTTP-роуты описываются в функции RegisterRoutes, например:
+## 📚 Примеры пайплайнов
 
-func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
-    // @Summary Логин
-    // @Description Аутентификация пользователя и выдача JWT
-    // ...
-    mux.HandleFunc("/login", handler.Login)
-}
+### AI Feed (ws-gateway → Kafka → GPT → Kafka → ws-ai-advice)
 
-Файл с роутами должен называться routes.go и располагаться в одной из папок:
+```go
+// отправка из ws-gateway
+kafka.Produce(ctx, topicFeed, AiFeedPayload{
+  SenderEmail: user.Email,
+  Text:        msg,
+  ThreadID:    threadID,
+})
 
-internal/**/http
+// обработка в ai-service
+reply := gpt.SendMessageAndGetAutoreply(ctx, threadID, email, text)
+stream.AutoReplyChan <- AiAutoReplyResult{ThreadID: threadID, Text: reply}
 
-Swagger-аннотации размещаются над mux.HandleFunc(...) в этом файле. Это требует команда make swagger-init
+// отправка в Kafka
+producer.Publish(ctx, threadID, replyBytes)
 
-ДОКУМЕНТАЦИЯ ПО МИКРОСЕРВИСАМ
+// ws-ai-advice читает и пушит
+hub.SendToRoom(chatID, "message", map[string]interface{}{
+  "text": reply,
+  "fromAI": true,
+})
+```
 
-1. auth-service
+---
 
-📱 HTTP API (наружу)
+## 🔌 Внешние зависимости
 
-POST /login — аутентификация пользователя
+- Kafka (`confluentinc/cp-kafka:7.4.0`)
+- Postgres 15
+- migrate/migrate для миграций
+- OpenAI API (через `infra/gpt`)
+- Swagger (`swag init`)
+- mockgen для моков
 
-POST /register — регистрация нового пользователя
+---
 
+## ✅ Тесты
 
-🔌 gRPC API (внутрь системы)
+```bash
+make test            # все unit-тесты
+make test-integration  # интеграционные (с тегом integration)
+make list-tests        # список всех *_test.go
+```
 
-rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+---
 
-📁 Определение: authpb/auth.proto🔹 Сервер регистрируется в auth-service
+## 📦 Общие утилиты
 
-🔗 Зависимости
+Переиспользуемые пакеты в `github.com/Vovarama1992/go-utils`:
 
-auth-service по gRPC обращается к user-service:
+- `grpcutil` — CircuitBreaker, Retry, Recover
+- `httputil` — Throttle, Recover
+- `pgutil` — pgx Pool + CircuitBreaker
 
-CreateUser(email, passwordHash) → userID
+---
 
-GetByEmail(email) → userID, passwordHash
+## 🧪 Swagger и API
 
+Swagger-описания живут в `internal/**/http/routes.go`, генерируются через:
 
+```bash
+make swagger-init
+```
 
-2. user-service
+---
 
-🔌 gRPC API
+## 📁 Генерация моков
 
-user-service предоставляет gRPC-интерфейс:
+```bash
+make generate-mocks         # из internal/**/ports
+make generate-grpc-mocks    # из proto/**.proto
+```
 
-GetUserByEmail(email) → userID, passwordHash
+---
 
-CreateUser(email, passwordHash) → userID
+## 📎 Kafka Topics
 
-3. chat-service
-📱 HTTP API (наружу)
+```env
+TOPIC_MESSAGE_PERSIST        = chat.message.persist
+TOPIC_AI_FEED                = chat.message.ai.feed
+TOPIC_AI_AUTOREPLY           = chat.message.ai-autoreply
+TOPIC_AI_ADVICE_REQUEST      = chat.ai.advice-request
+TOPIC_AI_ADVICE_RESPONSE     = chat.message.ai-advice-response
+TOPIC_AI_BINDING_INIT        = chat.binding.init
+TOPIC_CHAT_INVITE            = chat.invite.send
+TOPIC_FORWARD_MESSAGE        = chat.message.forward
+TOPIC_AI_THREAD_CREATED      = chat.binding.thread-created
+```
 
-Все эндпоинты описаны через Swagger-аннотации в internal/**/http/routes.go.
+---
 
-Сгенерированная документация используется фронтом и внешними клиентами.
+## 🧠 GPT Prompt (для feed)
 
-📌 Для генерации: make swagger-init
+```go
+"бро лови новое сообщение из диалога. емейл: %s, текст: %s"
+```
 
-🔌 gRPC API
+---
 
-Интерфейс chatpb.ChatService предоставляет:
+## 🔗 Репозиторий
 
-GetChatByID(chat_id) → Chat
-
-GetBindingsByChat(chat_id) → List<Binding>
-
-GetUserWithChatByThreadID(thread_id) → {userID, chatID, email}
-
-GetUsersByChatID(chat_id) → List<userID>
-
-GetThreadContext(thread_id) → {senderID, senderEmail, chatID, participants}
-
-📁 Определение: proto/chatpb/chat.proto
-🔹 Реализация сервера: internal/chat/adapters/grpc
-
-🔗 Зависимости
-
-gRPC-запрос к user-service: GetUserByID(userID)
-gRPC-запрос к message-service: GetMessagesByChat(chatID)
-
-Kafka-события:
-
-TOPIC_AI_ADVICE_REQUEST — отправка запроса в AI
-
-TOPIC_CHAT_INVITE — отправка инвайтов в вебсокет
-
-gRPC-вызовы из ws-ai-advice:
-
-получение участника по threadID
-
-получение контекста чата по threadID
-
-4. message-service
-📡 Kafka Listener (внутрь)
-Читает сообщения из Kafka-топика:
-
-TOPIC_MESSAGE_PERSIST — сохранение входящих сообщений в БД
-
-💬 gRPC API (наружу)
-
-GetMessagesByChat(chatID) → List<Message>
-Возвращает историю сообщений по указанному чату
-
-🤖 Обработка AI-сообщений
-
-Если сообщение приходит только с ThreadID, без ChatID и SenderID,
-то оно считается сгенерированным AI. В этом случае:
-
-SenderID и ChatID подставляются через GetUserWithChatByThreadID(threadID)
-
-AIGenerated = true
-
-🔗 Зависимости
-
-gRPC-запросы к:
-
-chat-service: GetUserWithChatByThreadID(threadID)
-
-user-service: GetUserByID(userID)
-
-5. ws-gateway:
-
-WebSocket принимает сообщения с chatID и текстом от клиентов.
-
-Для каждого сообщения вызывает gRPC chat-service.GetBindingsByChat(chatID) для получения биндингов.
-
-Публикует в Kafka два топика:
-
-TOPIC_MESSAGE_PERSIST — для сохранения сообщений.
-
-TOPIC_AI_FEED — для обработки AI по каждому биндингу (threadID, bindingType).
-
-Слушает Kafka-топики:
-
-TOPIC_CHAT_INVITE — отправляет инвайты пользователям через WebSocket.
-
-TOPIC_FORWARD_MESSAGE — форвардит сообщения по чатам через WebSocket.
-
-TOPIC_AI_AUTOREPLY — читает AI ответы, получает user/chat по threadID через gRPC и отправляет клиентам через WebSocket.
-
-gRPC подключается к:
-
-auth-service для проверки токенов при WebSocket соединении.
-
-chat-service для получения биндингов и информации по threadID.
-
-Вся логика работы с клиентами (регистрация, комнаты, рассылка) реализована в Hub (WebSocket-центр).
-
-6. ai-service
-🧠 Обрабатывает AI-цепочки (binding, feed, advice) через OpenAI.
-
-Вход:
-
-Kafka: TOPIC_AI_BINDING_INIT, TOPIC_AI_FEED, TOPIC_AI_ADVICE_REQUEST
-
-Выход:
-
-Kafka: TOPIC_THREAD_CREATED, TOPIC_AI_AUTOREPLY, TOPIC_AI_ADVICE_RESPONSE
-
-Интеграции:
-
-OpenAI (через infra/gpt)
-
-Kafka (через infra/kafka)
-
-Слои:
-
-app/ — пайплайны (воркеры)
-
-usecase/ — бизнес-логика
-
-infra/ — внешние зависимости
-
-stream/ — очереди между этапами
-
-Всё взаимодействие идёт через интерфейсы (ports/). В тестах реализации подменяются сгенерированными на их основе моками.
-
-7. ws-ai-advice
-Микросервис для доставки AI-советов по WebSocket.
-
-🔌 Входящие зависимости
-Kafka
-
-TOPIC_AI_ADVICE_RESPONSE — AI-сообщения (text + threadID)
-
-gRPC
-
-chat-service:
-
-GetUserWithChatByThreadID(threadID) → userID, chatID, email
-
-GetThreadContext(threadID) → senderID, email, chatID, participants
-
-auth-service:
-
-ValidateToken(token) → userID, email
-
-🔁 Пайплайн
-Читаем из Kafka (TOPIC_AI_ADVICE_RESPONSE)
-
-Получаем по threadID данные от chat-service
-
-Обогащённое сообщение (chatID, userID, text) отправляем пользователю через WebSocket (gpt-advice)
-
-🔐 Подключение по WebSocket
-На onConnect валидируем токен через auth-service
-
-Регистрируем пользователя в Hub (userID → Conn)
-
-Hub отправляет сообщения по userID
-
-✅ Покрытие тестами
-Все зависимости описаны в internal/ports/ и покрываются моками (make generate-mocks).
-Покрыты все этапы пайплайна:
-
-RunAdviceReaderFromKafka (Kafka → chan)
-
-RunChannelsBetweener (gRPC enrich → chan)
-
-RunAdvicePusherToFronts (chan → WebSocket)
-
-onConnectHandler (токен → регистрация/отказ)
-
+> Архитектура покрыта тестами, все зависимости замоканы через `make generate-mocks`. Проект поддерживает чистую архитектуру с каналами между этапами. Пайплайны можно наращивать под новые AI-сценарии.
