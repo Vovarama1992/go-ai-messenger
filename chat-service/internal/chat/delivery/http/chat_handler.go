@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"
 )
@@ -19,15 +18,6 @@ type ChatHandler struct {
 
 func NewChatHandler(service *usecase.ChatService, inviteTopic string) *ChatHandler {
 	return &ChatHandler{service: service, inviteTopic: inviteTopic}
-}
-
-type createChatRequest struct {
-	Type    model.ChatType `json:"type"`
-	Members []int64        `json:"members"` // optional
-}
-
-type sendInviteRequest struct {
-	UserIDs []int64 `json:"userIds"`
 }
 
 func (h *ChatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
@@ -42,9 +32,8 @@ func (h *ChatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-
-	if err := req.Type.IsValid(); err != nil {
-		http.Error(w, "invalid chat type", http.StatusBadRequest)
+	if err := validate.Struct(req); err != nil {
+		http.Error(w, "validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -124,7 +113,6 @@ func (h *ChatHandler) SendInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем, что userID — участник чата
 	participants, err := h.service.GetParticipants(r.Context(), chatID)
 	if err != nil {
 		http.Error(w, "failed to check chat participants", http.StatusInternalServerError)
@@ -146,6 +134,10 @@ func (h *ChatHandler) SendInvite(w http.ResponseWriter, r *http.Request) {
 	var req sendInviteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := validate.Struct(req); err != nil {
+		http.Error(w, "validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 

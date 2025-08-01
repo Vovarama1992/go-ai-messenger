@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
+	"github.com/Vovarama1992/go-utils/kafkautil"
 
 	kafka "github.com/segmentio/kafka-go"
 )
@@ -17,9 +18,17 @@ var ErrProducerClosed = errors.New("producer closed")
 type KafkaProducer struct {
 	writer             *kafka.Writer
 	aiBindingInitTopic string
-	mu                 sync.Mutex
 	adviceTopic        string
+	mu                 sync.Mutex
 	closed             bool
+
+	retryer *kafkautil.Retry
+	breaker *kafkautil.Breaker
+}
+
+func (p *KafkaProducer) WithRetryBreaker(retry *kafkautil.Retry, breaker *kafkautil.Breaker) {
+	p.retryer = retry
+	p.breaker = breaker
 }
 
 func NewKafkaProducer(bindingInitTopic, adviceTopic string, writer *kafka.Writer) *KafkaProducer {
@@ -48,10 +57,24 @@ func (p *KafkaProducer) Produce(ctx context.Context, topic string, payload inter
 		Value: bytes,
 	}
 
-	err = p.writer.WriteMessages(ctx, msg)
-	if err != nil {
-		log.Printf("❌ Failed to write message to Kafka: %v", err)
-		return err
+	writeFn := func(ctx context.Context, msg kafka.Message) error {
+		return p.writer.WriteMessages(ctx, msg)
+	}
+
+	var writeErr error
+	if p.retryer != nil && p.breaker != nil {
+		writeErr = p.retryer.Do(func() error {
+			return p.breaker.Do(func() error {
+				return writeFn(ctx, msg)
+			})
+		})
+	} else {
+		writeErr = writeFn(ctx, msg)
+	}
+
+	if writeErr != nil {
+		log.Printf("❌ Failed to write message to Kafka: %v", writeErr)
+		return writeErr
 	}
 
 	log.Printf("✅ Sent message to Kafka topic: %s", topic)

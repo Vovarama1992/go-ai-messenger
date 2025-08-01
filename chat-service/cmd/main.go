@@ -57,12 +57,11 @@ func main() {
 
 	// Kafka producer
 	writer := kafkaadapter.NewKafkaWriter()
-	var chatproducer ports.AdvicePublisher = kafkaadapter.NewKafkaProducer(bindingTopic, adviceTopic, writer)
-	var bindingproducer ports.MessageBroker = kafkaadapter.NewKafkaProducer(bindingTopic, adviceTopic, writer)
+	chatproducer, bindingproducer := kafkaadapter.NewKafkaProducers(bindingTopic, adviceTopic, writer)
 
 	// Kafka consumer (чтение chat.binding.thread-created)
 	reader := kafkaadapter.NewKafkaReader(resultTopic, "chat-service")
-	consumer := kafkaconsumer.NewKafkaConsumer(reader)
+	consumer := kafkaconsumer.NewThreadCreatedConsumer(reader)
 
 	// Message gRPC client
 	msgConn, err := grpc.Dial(messageGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

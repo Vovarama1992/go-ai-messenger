@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/model"
 	"github.com/Vovarama1992/go-ai-messenger/chat-service/internal/chat/usecase"
 	middleware "github.com/Vovarama1992/go-ai-messenger/pkg/authmiddleware"
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New()
 
 type ChatBindingHandler struct {
 	service *usecase.ChatBindingService
@@ -16,10 +18,6 @@ type ChatBindingHandler struct {
 
 func NewChatBindingHandler(service *usecase.ChatBindingService) *ChatBindingHandler {
 	return &ChatBindingHandler{service: service}
-}
-
-type bindRequest struct {
-	Type model.AIBindingType `json:"type"`
 }
 
 func (h *ChatBindingHandler) CreateOrUpdateBinding(w http.ResponseWriter, r *http.Request) {
@@ -48,8 +46,8 @@ func (h *ChatBindingHandler) CreateOrUpdateBinding(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if err := req.Type.IsValid(); err != nil {
-		http.Error(w, "invalid binding type", http.StatusBadRequest)
+	if err := validate.Struct(req); err != nil {
+		http.Error(w, "validation failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
